@@ -1,0 +1,60 @@
+Description: Correct path to lspci
+ Scripts have absolute path of /sbin/lspci. It is /usr/bin/lspci on Debian.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2018-06-22>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/IbaTools/nodeverify/nodeverify.sh
++++ b/IbaTools/nodeverify/nodeverify.sh
+@@ -244,7 +244,7 @@
+ 	failure=0
+ 	cd "${outdir}" || fail "Can't cd ${outdir}"
+ 
+-	lspci="${lspci:-/sbin/lspci}"
++	lspci="${lspci:-/usr/bin/lspci}"
+ 	[ ! -x "${lspci}" ] && fail "Can't find lspci"
+ 
+ 	# get OmniPath Intel stand-alone WFR HFI
+@@ -312,7 +312,7 @@
+ 	failure=0
+ 	cd "${outdir}" || fail "Can't cd ${outdir}"
+ 
+-	lspci="${lspci:-/sbin/lspci}"
++	lspci="${lspci:-/usr/bin/lspci}"
+ 	[ ! -x "${lspci}" ] && fail "Can't find lspci"
+ 
+ 	# get OmniPath Intel stand-alone WFR HFI
+@@ -502,8 +502,8 @@
+ 	date
+ 	cd "${outdir}" || fail "Can't cd ${outdir}"
+ 
+-	lspci="${lspci:-/sbin/lspci}"
+-	setpci="${setpci:-/sbin/setpci}"
++	lspci="${lspci:-/usr/bin/lspci}"
++	setpci="${setpci:-/usr/bin/setpci}"
+ 
+ 	[ ! -x "${lspci}" ] && fail "Can't find lspci"
+ 	[ ! -x "${setpci}" ] && fail "Can't find setpci"
+--- a/IbaTools/opahfirev/opahfirev.sh
++++ b/IbaTools/opahfirev/opahfirev.sh
+@@ -70,7 +70,7 @@
+ 
+ BASEDIR=/sys/bus/pci/devices
+ 
+-hfis=`/sbin/lspci -nn -D -d '8086:*' | egrep -e "24f[01]|Omni-Path" | grep -vi bridge | cut -d\  -f1`
++hfis=`/usr/bin/lspci -nn -D -d '8086:*' | egrep -e "24f[01]|Omni-Path" | grep -vi bridge | cut -d\  -f1`
+ 
+ if [ -z "$hfis" ]
+ then 
+--- a/OpenIb_Host/LINUX/opacapture.sh
++++ b/OpenIb_Host/LINUX/opacapture.sh
+@@ -150,7 +150,7 @@
+ tar -zcf /$dir/opa-fm-bins.tgz /usr/lib/opa-fm/runtime/ > /dev/null 2>&1
+ 
+ # Finding the PCI devices
+-for fw in `/sbin/lspci -n | grep "8086:24f0"`
++for fw in `/usr/bin/lspci -n | grep "8086:24f0"`
+ do
+ 	# Just get the PCI info for now...
+ 	echo "$fw" >> /$dir/fw_info 

@@ -1,0 +1,104 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opaportinfo 1 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.SH NAME
+opaportinfo
+
+.NL
+
+.PP
+
+\fB(Host or Switch)\fR
+Displays configuration and state of a specified Intel(R) Omni-Path Host Fabric Interface (HFI) port on the local host or a remote switch.
+.SH Syntax
+.NL
+opaportinfo [-l \fIlid\fR[-m \fIdest\(ulport\fR]] [-h \fIhfi\fR] [-p \fIport\fR] [-K \fImkey\fR] [-v]
+.SH Options
+.NL
+
+.TP 10
+-l \fIlid\fR 
+.NL
+Specifies the destination LID. Default is local port.
+
+.TP 10
+-m \fIdest\(ulport\fR 
+.NL
+Specifies the destination port. Default is port with given LID. Useful to access switch ports.
+
+.TP 10
+-h \fIhfi\fR 
+.NL
+Specifies the HFI to send through/to. Default is first HFI.
+
+.TP 10
+-p \fIport\fR 
+.NL
+Specifies the port to send through/to. Default is first port.
+
+.TP 10
+-K \fImkey\fR 
+.NL
+Specifies the SM management key to access remote ports.
+
+.NL
+
+.SH -h and -p options permit a variety of selections:
+.NL
+
+.TP 10
+-h 0 
+.NL
+First active port in system (default).
+
+.TP 10
+-h 0 -p 0 
+.NL
+First active port in system.
+
+.TP 10
+-h \fIx\fR 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h \fIx\fR \fI\fR-p 0 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h 0 -p \fIy\fR 
+.NL
+Port \fIy\fR within system (no matter which ports are active).
+
+.TP 10
+-h \fIx\fR \fI\fR-p \fIy\fR 
+.NL
+HFI \fIx\fR, port \fIy\fR.
+
+.NL
+
+.SH Debug Options
+.NL
+
+.TP 10
+-v 
+.NL
+Specifies the verbose output. Additional invocations (-v -v ...) turn on debugging, openib debugging, and libibumad debugging.
+
+.SH Examples 
+.NL
+opaportinfo -p 1
+.br
+opaportinfo -p 2 -h 2 -l 5 -m 18
+.SH Description
+.NL
+
+.PP
+To access switch ports using this command, the -l and -m options must be given. The -l option specifies the LID of switch port 0 (the logical management port for the switch) and -m specifies the actual switch port to access. If SMA mkeys are used, the -K option is also needed. However, the Intel(R) Omni-Path Fabric Suite Fabric Manager does not use SMA mkeys by default, therefore this option may not be required.

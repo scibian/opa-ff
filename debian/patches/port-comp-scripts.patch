@@ -1,0 +1,313 @@
+Description: Port necessary pieces of the comp...pl scripts
+ opaconfig uses the comp...pl scripts installed by individual packages
+ to override its default behavior. This patch ports the necessary pieces
+ to Debian. For the most part, this involves use of dpkg instead of rpm.
+ Omit deletion of conf dirs during component uninstall, let dpkg handle it.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2018-06-22>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/CommonInstall/comp_fastfabric.pl
++++ b/CommonInstall/comp_fastfabric.pl
+@@ -42,6 +42,10 @@
+ my $FF_TLS_CONF_FILE = "/etc/opa/opaff.xml";
+ sub available_fastfabric
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "available_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $srcdir=$ComponentInfo{'fastfabric'}{'SrcDir'};
+ 	return ((rpm_resolve("$srcdir/RPMS/*/", "any", "opa-mpi-apps") ne "") &&
+ 			(rpm_resolve("$srcdir/RPMS/*/", "any", "opa-fastfabric") ne ""));
+@@ -62,6 +66,10 @@
+ # only called if available_fastfabric is true
+ sub media_version_fastfabric
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "media_version_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $srcdir=$ComponentInfo{'fastfabric'}{'SrcDir'};
+ 	my $rpmfile = rpm_resolve("$srcdir/RPMS/*/", "any", "opa-fastfabric");
+ 	my $version= rpm_query_version_release("$rpmfile");
+@@ -71,6 +79,10 @@
+ 
+ sub build_fastfabric
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "build_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $osver = $_[0];
+ 	my $debug = $_[1];	# enable extra debug of build itself
+ 	my $build_temp = $_[2];	# temp area for use by build
+@@ -80,6 +92,10 @@
+ 
+ sub need_reinstall_fastfabric($$)
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "need_reinstall_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = shift();	# total that will be installed when done
+ 	my $installing_list = shift();	# what items are being installed/reinstalled
+ 
+@@ -88,11 +104,19 @@
+ 
+ sub check_os_prereqs_fastfabric
+ {	
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "check_os_prereqs_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	return rpm_check_os_prereqs("fastfabric", "user");
+ }
+ 
+ sub preinstall_fastfabric
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "preinstall_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];	# total that will be installed when done
+ 	my $installing_list = $_[1];	# what items are being installed/reinstalled
+ 
+@@ -101,6 +125,10 @@
+ 
+ sub install_fastfabric
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "install_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];	# total that will be installed when done
+ 	my $installing_list = $_[1];	# what items are being installed/reinstalled
+ 
+@@ -145,6 +173,10 @@
+ 
+ sub postinstall_fastfabric
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "postinstall_fastfabric unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];	# total that will be installed when done
+ 	my $installing_list = $_[1];	# what items are being installed/reinstalled
+ }
+@@ -158,19 +190,7 @@
+ 	rpm_uninstall_list("any", "verbose", ("opa-mpi-apps", "opa-fastfabric") );
+ 
+ 	NormalPrint("Uninstalling $ComponentInfo{'fastfabric'}{'Name'}...\n");
+-	remove_conf_file("$ComponentInfo{'fastfabric'}{'Name'}", "$FF_CONF_FILE");
+-	remove_conf_file("$ComponentInfo{'fastfabric'}{'Name'}", "$OPA_CONFIG_DIR/iba_stat.conf");
+-	remove_conf_file("$ComponentInfo{'fastfabric'}{'Name'}", "$FF_TLS_CONF_FILE");
+ 	
+-	# remove samples we installed (or user compiled), however do not remove
+-	# any logs or other files the user may have created
+-	remove_installed_files "/usr/share/opa/samples";
+-	system "rmdir $ROOT/usr/share/opa/samples 2>/dev/null";	# remove only if empty
+-
+-	system("rm -rf $ROOT/usr/lib/opa/.comp_fastfabric.pl");
+-	system "rmdir $ROOT/usr/lib/opa 2>/dev/null";	# remove only if empty
+-	system "rmdir $ROOT$BASE_DIR 2>/dev/null";	# remove only if empty
+-	system "rmdir $ROOT$OPA_CONFIG_DIR 2>/dev/null";	# remove only if empty
+ 	$ComponentWasInstalled{'fastfabric'}=0;
+ }
+ 
+@@ -180,6 +200,10 @@
+ 
+ sub available_opamgt_sdk
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "available_opamgt_sdk unimplemented\n";
++		exit(1);
++	}
+ 	my $srcdir = $ComponentInfo{'opamgt_sdk'}{'SrcDir'};
+ 	return ( rpm_exists("$srcdir/RPMS/*/", "any", "opa-libopamgt-devel") &&
+ 		     rpm_exists("$srcdir/RPMS/*/", "any", "opa-libopamgt"));
+@@ -187,18 +211,31 @@
+ 
+ sub installed_opamgt_sdk
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		return ( dpkg_is_installed("libopamgt-dev", "any") &&
++				 dpkg_is_installed("libopamgt0", "any"));
++	}
+ 	return ( rpm_is_installed("opa-libopamgt-devel", "any") &&
+ 		     rpm_is_installed("opa-libopamgt", "any"));
+ }
+ 
+ sub installed_version_opamgt_sdk
+ {
+-	my $version = rpm_query_version_release_pkg("opa-libopamgt-devel");
++	my $version;
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		$version = dpkg_query_version_release_pkg("libopamgt-dev");
++	} else {
++		$version = rpm_query_version_release_pkg("opa-libopamgt-devel");
++	}
+ 	return dot_version("$version");
+ }
+ 
+ sub media_version_opamgt_sdk
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "media_version_opamgt_sdk unimplemented\n";
++		exit(1);
++	}
+ 	my $srcdir = $ComponentInfo{'opamgt_sdk'}{'SrcDir'};
+ 	my $rpm = rpm_resolve("$srcdir/RPMS/*/", "any", "opa-libopamgt-devel");
+ 	my $version = rpm_query_version_release($rpm);
+@@ -217,6 +254,10 @@
+ 
+ sub check_os_prereqs_opamgt_sdk
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "check_os_prereqs_opamgt_sdk unimplemented\n";
++		exit(1);
++	}
+ 	return rpm_check_os_prereqs("opamgt_sdk", "user");
+ }
+ 
+@@ -227,6 +268,10 @@
+ 
+ sub install_opamgt_sdk
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "install_opamgt_sdk unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];       # total that will be installed when done
+ 	my $installing_list = $_[1];    # what items are being installed/reinstalled
+ 
+@@ -249,6 +294,10 @@
+ 
+ sub uninstall_opamgt_sdk
+ {
+-	rpm_uninstall_all_list("any", "verbose", ("opa-libopamgt-devel", "opa-libopamgt") );
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		dpkg_uninstall_all_list("any", "verbose", ("libopamgt-dev", "libopamgt0") );
++	} else {
++		rpm_uninstall_all_list("any", "verbose", ("opa-libopamgt-devel", "opa-libopamgt") );
++	}
+ 	$ComponentWasInstalled{'opamgt_sdk'}=0;
+ }
+--- a/CommonInstall/comp_oftools.pl
++++ b/CommonInstall/comp_oftools.pl
+@@ -43,6 +43,10 @@
+ # TBD - could we move the algorithms for many of these functions into
+ # util_component.pl and simply put a list of rpms in the ComponentInfo
+ # as well as perhaps config files
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "available_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $srcdir=$ComponentInfo{'oftools'}{'SrcDir'};
+ 	return ((rpm_resolve("$srcdir/RPMS/*/", "any", "opa-basic-tools") ne "")
+ 			&& (rpm_resolve("$srcdir/RPMS/*/", "any", "opa-address-resolution") ne "" ));
+@@ -63,6 +67,10 @@
+ # only called if available_oftools is true
+ sub media_version_oftools
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "media_version_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $srcdir=$ComponentInfo{'oftools'}{'SrcDir'};
+ 	my $rpmfile = rpm_resolve("$srcdir/RPMS/*/", "any", "opa-basic-tools");
+ 	my $version= rpm_query_version_release("$rpmfile");
+@@ -72,6 +80,10 @@
+ 
+ sub build_oftools
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "build_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $osver = $_[0];
+ 	my $debug = $_[1];	# enable extra debug of build itself
+ 	my $build_temp = $_[2];	# temp area for use by build
+@@ -81,6 +93,10 @@
+ 
+ sub need_reinstall_oftools($$)
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "need_reinstall_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = shift();	# total that will be installed when done
+ 	my $installing_list = shift();	# what items are being installed/reinstalled
+ 
+@@ -89,6 +105,10 @@
+ 
+ sub preinstall_oftools
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "preinstall_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];	# total that will be installed when done
+ 	my $installing_list = $_[1];	# what items are being installed/reinstalled
+ 
+@@ -97,6 +117,10 @@
+ 
+ sub install_oftools
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "install_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];	# total that will be installed when done
+ 	my $installing_list = $_[1];	# what items are being installed/reinstalled
+ 
+@@ -123,6 +147,10 @@
+ 
+ sub postinstall_oftools
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "postinstall_oftools unimplemented\n";
++		exit(1);
++	}
+ 	my $install_list = $_[0];	# total that will be installed when done
+ 	my $installing_list = $_[1];	# what items are being installed/reinstalled
+ }
+@@ -134,28 +162,20 @@
+ 
+ 	NormalPrint("Uninstalling $ComponentInfo{'oftools'}{'Name'}...\n");
+ 
+-	rpm_uninstall_list("any", "verbose", ("opa-basic-tools", "opa-address-resolution") );
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		dpkg_uninstall_list("any", "verbose", ("opa-scripts", "opa-basic-tools", "opa-address-resolution"));
++	} else {
++		rpm_uninstall_all_list("any", "verbose", ("opa-libopamgt-devel", "opa-libopamgt") );
++	}
+ 
+-	# remove LSF and Moab related files
+-	system("rm -rf $ROOT/usr/lib/opa/LSF_scripts");
+-	system("rm -rf $ROOT/usr/lib/opa/Moab_scripts");
+-
+-	# may be created by opaverifyhosts
+-	system("rm -rf $ROOT/usr/lib/opa/tools/nodescript.sh");
+-	system("rm -rf $ROOT/usr/lib/opa/tools/nodeverify.sh");
+-
+-	system "rmdir $ROOT/usr/lib/opa/tools 2>/dev/null";	# remove only if empty
+-
+-	# oftools is a prereq of fastfabric can cleanup shared files here
+-	system("rm -rf $ROOT$BASE_DIR/version_ff");
+-	system "rmdir $ROOT$BASE_DIR 2>/dev/null";	# remove only if empty
+-	system "rmdir $ROOT$OPA_CONFIG_DIR 2>/dev/null";	# remove only if empty
+-	system("rm -rf $ROOT/usr/lib/opa/.comp_oftools.pl");
+-	system "rmdir $ROOT/usr/lib/opa 2>/dev/null";	# remove only if empty
+ 	$ComponentWasInstalled{'oftools'}=0;
+ }
+ 
+ sub check_os_prereqs_oftools
+ {
++	if ("$CUR_DISTRO_VENDOR" eq 'debian') {
++		printf "check_os_prereqs_oftools unimplemented\n";
++		exit(1);
++	}
+ 	return rpm_check_os_prereqs("oftools", "user");
+ }

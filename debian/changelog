@@ -1,0 +1,94 @@
+opa-ff (10.7.0.0-133-1ifs+deb9) UNRELEASED; urgency=medium
+
+  * New upstream version 10.7.0.0-133 from IFS 10.7.0.0.145.
+  * Change source package name from opa to opa-ff.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Fri, 22 Jun 2018 10:26:47 -0500
+
+opa (10.6.1.0-2-2ifs+deb9) UNRELEASED; urgency=medium
+
+  * Branch for stretch.
+  * Don't remove conf dirs in component uninstall.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Wed, 21 Feb 2018 14:33:14 -0600
+
+opa (10.6.1.0-2-1ifs) UNRELEASED; urgency=medium
+
+  * Import opa 10.6.1.0-2 from IFS RHEL73 10.6.1.0.2.
+  * Use git packaging and pristine-tar.
+  * Added opa-dbg package.
+  * Refresh patches and modify to address porting issues in latest version.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Mon, 18 Dec 2017 16:47:54 -0600
+
+opa (10.5.0.0-140-2ifs) UNRELEASED; urgency=medium
+
+  * Port functionality of comp_fastfabric.pl required by opaconfig to Debian.
+  * Port opaconfig.sh to Debian.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Wed, 11 Oct 2017 15:15:28 -0500
+
+opa (10.5.0.0-140-1ifs) UNRELEASED; urgency=medium
+
+  * Import opa 10.5.0.0-140 from IFS 10.5.0.0.155 upstream.
+  * Updated dependencies according to spec file.
+  * Fixed lintian errors/warnings
+     + Invalid NL macro in manpages
+     + Invalid NAME format, lexgrog failed to parse
+     + Removed executable mode from several .c files
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Tue, 19 Sep 2017 17:17:38 -0500
+
+opa (10.4.1.0-1-1ifs) UNRELEASED; urgency=medium
+
+  * Import opa 10.4.1.0-1 from IFS 10.4.2.0.7 upstream.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Thu, 13 Jul 2017 12:19:31 -0500
+
+opa (10.3.1.0-7-2ifs) UNRELEASED; urgency=medium
+
+  * Changed libibmad dependency to libibmad5.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Mon, 19 Jun 2017 15:15:21 -0500
+
+opa (10.3.1.0-7-1ifs) UNRELEASED; urgency=medium
+
+  * Convert to quilt format. Corrected version.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Fri, 09 Jun 2017 12:11:40 -0500
+
+opa (10.3.1.0.7) UNRELEASED; urgency=medium
+
+  * Import opa 10.3.1.0.7 from upstream IFS 10.3.1.0.19
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Thu, 26 Jan 2017 14:01:35 -0600
+
+opa (10.3.0.0.64) UNRELEASED; urgency=medium
+
+  * Import opa 10.3.0.0.64 from upstream IFS 10.3.0.0.81
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Tue, 27 Dec 2016 10:05:35 -0600
+
+opa (10.2.0.0.154) UNRELEASED; urgency=medium
+
+  * Import opa 10.2.0.0.154 from upstream IFS 10.2.0.0.158
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Fri, 30 Sep 2016 20:37:35 -0500
+
+opa (10.1.1.0) UNRELEASED; urgency=medium
+
+  * Import opa 10.1.1.0.7 from upstream IFS 10.1.1.0.9
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Wed, 27 Jul 2016 12:13:35 -0500
+
+opa (10.1.0.0) UNRELEASED; urgency=medium
+
+  * Import IFS 10.1.0.0.145 from upstream.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Fri, 10 Jun 2016 18:28:35 -0500
+
+opa (10.0.0.0) UNRELEASED; urgency=medium
+
+  * Initial release.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Mon, 14 Mar 2016 12:26:35 -0500

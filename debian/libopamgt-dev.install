@@ -1,0 +1,3 @@
+usr/include/opamgt/*
+usr/lib/libopamgt.so
+usr/src/opamgt/*

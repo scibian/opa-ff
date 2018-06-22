@@ -1,0 +1,32 @@
+Description: Correct TCL rules in Makefiles
+ Corrects the flags in Makefiles for building against TCL libraries.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2017-11-20>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/OpenIb_Host/Makerules.project
++++ b/OpenIb_Host/Makerules.project
+@@ -155,8 +155,9 @@
+ IBACCESS_USER_INCLUDE_DIRS= $(GLOBAL_INCLUDE_DIR)/iba $(GLOBAL_INCLUDE_DIR)/iba/public
+ IBACCESS_USER_LIB_DIRS=
+ IBACCESS_USER_LIBS= public
++TCL_INCLUDE_DIRS=/usr/include/tcl8.6
+ 
+-PROJ_INCLUDE_DIRS+= $(IBACCESS_USER_INCLUDE_DIRS) $(OPENIB_INCLUDE_DIRS) $(OPENIB_USER_INCLUDE_DIRS)
++PROJ_INCLUDE_DIRS+= $(IBACCESS_USER_INCLUDE_DIRS) $(OPENIB_INCLUDE_DIRS) $(OPENIB_USER_INCLUDE_DIRS) $(TCL_INCLUDE_DIRS)
+ 
+ CPROJKERNEL=$(CKERNEL)
+ 
+--- a/TestTools/Makefile
++++ b/TestTools/Makefile
+@@ -124,6 +124,9 @@
+ LOCALLIBS=$(shell if [ -e /usr/lib64/libtclstub.a -o -e /usr/lib/libtclstub.a -o -e /usr/lib/x86_64-linux-gnu/libtclstub.a ]; then echo tclstub; \
+ 		elif [ -e /usr/lib64/libtclstub8.6.a -o -e /usr/lib/libtclstub8.6.a -o -e /usr/lib/x86_64-linux-gnu/libtclstub8.6.a ]; then echo tclstub8.6; \
+ 		elif [ -e /usr/lib64/libtclstub8.5.a -o -e /usr/lib/libtclstub8.5.a -o -e /usr/lib/x86_64-linux-gnu/libtclstub8.5.a ]; then echo tclstub8.5; \
++		elif [ -e /usr/lib/x86_64-linux-gnu/libtclstub.a ]; then echo tclstub; \
++		elif [ -e /usr/lib/x86_64-linux-gnu/libtclstub8.6.a ]; then echo tclstub8.6; \
++		elif [ -e /usr/lib/x86_64-linux-gnu/libtclstub8.5.a ]; then echo tclstub8.5; \
+ 		else echo tclstub8.4; fi)
+ 
+ # Include Make Rules definitions and rules
