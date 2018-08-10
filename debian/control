@@ -15,6 +15,7 @@ Build-Depends: debhelper (>= 10),
                libssl-dev,
                tcl-dev,
                zlib1g-dev,
+	       libc6-dev-i386 [i386],
 
 Package: libopamgt-dev
 Section: libdevel
