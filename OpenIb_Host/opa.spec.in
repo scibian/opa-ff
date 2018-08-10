@@ -1,0 +1,136 @@
+Name: opa
+Version: __RPM_VERSION
+Release: __RPM_RELEASE
+Summary: Intel Omni-Path basic tools and libraries for fabric managment.
+
+Group: System Environment/Libraries
+License: GPLv2/BSD 
+Url: http://www.intel.com/
+Source: opa.tgz
+ExclusiveArch: x86_64
+# The Intel(R) OPA product line is only available on x86_64 platforms at this time.
+
+__RPM_DEBUG
+
+%description
+This package contains the tools necessary to manage an Intel(R) Omni-Path Architecture fabric.
+
+%package basic-tools
+Summary: Managment level tools and scripts.
+Group: System Environment/Libraries
+
+Requires: rdma bc
+
+Requires: __RPM_REQ
+BuildRequires: __RPM_BLDREQ
+
+%description basic-tools
+Contains basic tools for fabric managment necessary on all compute nodes.
+
+%package fastfabric
+Summary: Management level tools and scripts.
+Group: System Environment/Libraries
+Requires: opa-basic-tools
+
+%description fastfabric
+Contains tools for managing fabric on a managment node.
+
+%package address-resolution
+Summary: Contains Address Resolution manager
+Group: System Environment/Libraries
+Requires: opa-basic-tools ibacm
+
+%description address-resolution
+This package contains the ibacm distributed SA provider (dsap) for name and address resolution on OPA platform.
+It also contains the library and tools to access the shared memory database exported by dsap.
+
+%package libopamgt
+Summary: Omni-Path management API library
+Group: System Environment/Libraries
+Requires: __RPM_RQ2
+
+%description libopamgt
+This package contains the library necessary to build applications that interface with an Omni-Path FM.
+
+
+%package libopamgt-devel
+Summary: Omni-Path library development headers
+Group: System Environment/Libraries
+Requires: __RPM_RQ3
+
+%description libopamgt-devel
+This package contains the necessary headers for opamgt development.
+
+%prep
+#rm -rf %{_builddir}/*
+#tar xzf %_sourcedir/%name.tgz
+%setup -q -c
+
+%build
+cd OpenIb_Host
+./ff_build.sh %{_builddir} $BUILD_ARGS
+
+
+%install
+BUILDDIR=%{_builddir} DESTDIR=%{buildroot} LIBDIR=/usr/lib DSAP_LIBDIR=%{_libdir} ./ff_install.sh
+
+%post address-resolution -p /sbin/ldconfig
+%postun address-resolution -p /sbin/ldconfig
+
+%preun fastfabric
+cd /usr/src/opa/mpi_apps >/dev/null 2>&1
+make -k clean >/dev/null 2>&1 || : # suppress all errors and return codes from the make clean.
+
+%post libopamgt -p /sbin/ldconfig
+%postun libopamgt -p /sbin/ldconfig
+
+%preun libopamgt-devel
+cd /usr/src/opamgt >/dev/null 2>&1
+make -k clean >/dev/null 2>&1 || :
+
+%files basic-tools
+__RPM_BASIC_FILES
+%config(noreplace) %{_sysconfdir}/opa/opamgt_tls.xml
+
+%files fastfabric
+__RPM_FF_FILES
+%{_sysconfdir}/opa/opamon.si.conf
+# Replace opamon.si.conf, as it's a template config file.
+%config(noreplace) %{_sysconfdir}/opa/opafastfabric.conf
+%config(noreplace) %{_sysconfdir}/opa/opamon.conf
+%config(noreplace) %{_sysconfdir}/opa/allhosts
+%config(noreplace) %{_sysconfdir}/opa/chassis
+%config(noreplace) %{_sysconfdir}/opa/esm_chassis
+%config(noreplace) %{_sysconfdir}/opa/hosts
+%config(noreplace) %{_sysconfdir}/opa/ports
+%config(noreplace) %{_sysconfdir}/opa/switches
+%config(noreplace) /usr/lib/opa/tools/osid_wrapper
+
+
+%files address-resolution
+%{_bindir}/opa_osd_dump
+%{_bindir}/opa_osd_exercise
+%{_bindir}/opa_osd_perf
+%{_bindir}/opa_osd_query
+%{_libdir}/ibacm
+%{_libdir}/libopasadb.so.*
+%{_includedir}/infiniband
+%{_mandir}/man1/opa_osd_dump.1*
+%{_mandir}/man1/opa_osd_exercise.1*
+%{_mandir}/man1/opa_osd_perf.1*
+%{_mandir}/man1/opa_osd_query.1*
+%config(noreplace) %{_sysconfdir}/rdma/dsap.conf
+
+%files libopamgt
+/usr/lib/libopamgt.*
+
+
+%files libopamgt-devel
+%{_includedir}/opamgt
+/usr/src/opamgt
+
+%changelog
+* Thu Apr 13 2017 Scott Breyer <scott.j.breyer@intel.com> - 10.5.0.0
+- Updates for spec file cleanup
+* Fri Oct 10 2014 Erik E. Kahn <erik.kahn@intel.com> - 1.0.0-ifs
+- Initial version

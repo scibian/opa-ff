@@ -1,0 +1,41 @@
+[ICS VERSION STRING: unknown]
+
+Script opaxlattopology and accompanying sample spreadsheet minimal_topology.xlsx
+and detailed_topology.xlsx (named as topology.xlsx hence forth)
+provide the capability to document the topology of a customer cluster,
+and generate a topology XML file based on that topology ("translate"
+the spread sheet to a topology file).  The topology file can be used
+to bring up and verify the cluster.  The exact steps to be used in
+the verification process are beyond the scope of this description.
+
+topology.xlsx provides a standard format for representing each
+external link in a cluster.  Each link contains source, destination
+and cable fields with one link per line (row) of the spread sheet.  Link
+fields must not contain commas.  Source and destination fields each are:
+Rack Group ("rack row"), Rack, Name (primary name), Name-2 (secondary name),
+Port Number and Port Type.  Cable fields are: Label, Length and Details.
+
+opaxlattopology takes as inputs the CSV (Comma-Separated-Values) form of
+the topology.xlsx cluster tab, and CSV files for (internal) core switch
+links (100SWD06 and/or 100SWD24).  The CSV spread sheet cluster tab
+is named topology.csv; the core switch links files are linksum_swd06.csv
+and linksum_swd24.csv respectively.  topology.csv is created from topology.xlsx
+by saving/exporting the tab as 'CSV' to topology.csv.  (topology.csv
+should be inspected to ensure that output rows contain the correct number
+of link fields; extraneous entries on the spread sheet can cause excel
+to output extra fields.)  opaxlattopology produces as output one or more
+topology files 'topology.0:0.xml'.  Output at the top-level as well as
+(optionally) Group, Rack, and Switch level can be produced.  Input files
+must be present in the directory from which the script operates.
+
+linksum_swd06.csv and linksum_swd24.csv are provided as stand-alone source
+files.  However, they can be recreated (or modified) from topology.xlsx,
+if needed, by the following:
+1) Save/export, individually as CSV files, the 'Internal SWD06 Links' and
+   'Internal SWD24 Links' tabs of topology.xlsx as 'topology.csv'.
+2) For each saved topology.csv file, run opaxlattopology with the -K
+   option.  Upon completion of the script save the top-level 'linksum.csv'
+   file as 'linksum_swd06.csv' or 'linksum_swd24.csv' as appropriate.
+
+See release notes for more information on using opaxlattopology and
+topology.xlsx.

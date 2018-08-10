@@ -1,0 +1,190 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opainfo 1 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.SH NAME
+opainfo
+
+.NL
+
+.PP
+Provides summary information for local HFI port(s).
+.SH Syntax
+.NL
+opainfo [-h \fIhfi\fR] [-p \fIport\fR] [-o \fItype\fR] [-g] [-d \fIdetail\fR] [-s pm\(ulsl]
+.br
+[-v [-v]...]
+.NL
+
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-h \fIhfi\fR 
+.NL
+Specifies the HFI, numbered 1..n. Using 0 specifies that the -p \fIport\fR port is a system-wide port number. (Default is 0.)
+
+.TP 10
+-p \fIport\fR 
+.NL
+Specifies the port, numbered 1 to n. Using 0 specifies the first active port across all HFIs/ports. Default = 1 which indicates all ports. If selected, the tool returns information on all available ports if p is not defined.
+
+.TP 10
+-o \fItype\fR 
+.NL
+Specifies the output type and can appear more than once.
+
+.TP 10
+.BR
+
+.PP
+
+.B NOTE:
+Behavior without -o gives a brief summary of portinfo, counters and cableinfo.
+
+.RS
+.TP 10
+
+.sp
+info 
+Outputs detailed portinfo.
+.RE
+
+.RS
+.TP 10
+
+.sp
+stats 
+Outputs detailed port counters.
+.RE
+
+.TP 10
+-g 
+.NL
+Output is displayed in line-by-line format. Default is summary format.
+
+.TP 10
+-d \fIdetail\fR 
+.NL
+Output detail level. Range = 0 - 2. CableInfo only. Default is 0.
+
+.TP 10
+.BR
+
+.PP
+
+.B NOTE:
+-d option is ignored when used with -o type.
+
+.RS
+.TP 10
+
+.sp
+0
+Minimal crucial information (for example, cable length, vendor)
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+1
+Brief summary
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+2
+Extended brief summary
+
+.RE
+
+.TP 10
+-s \fIpm\(ulsl\fR 
+.NL
+Specifies different Service Level for PMA traffic.
+
+.NL
+
+.SH -h and -p options permit a variety of selections:
+.NL
+
+.TP 10
+-h 0 
+.NL
+First active port in system (default).
+
+.TP 10
+-h 0 -p 0 
+.NL
+First active port in system.
+
+.TP 10
+-h \fIx\fR 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h \fIx\fR \fI\fR-p 0 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h 0 -p \fIy\fR 
+.NL
+Port \fIy\fR within system (no matter which ports are active).
+
+.TP 10
+-h \fIx\fR \fI\fR-p \fIy\fR 
+.NL
+HFI \fIx\fR, port \fIy\fR.
+
+.NL
+
+.SH Debug Options
+.NL
+
+.TP 10
+-v 
+.NL
+Specifies the verbose output. Additional invocations (-v -v ...) turn on debugging, openib debugging, and libibumad debugging.
+
+.SH Examples 
+.NL
+opainfo
+.br
+hfi1\(ul0:1 PortGID:0xfe80000000000000:001175010165b19c
+.br
+PortState: Active
+.br
+LinkSpeed Act: 25Gb En: 25Gb
+.br
+LinkWidth Act: 4 En: 4
+.br
+LinkWidthDnGrd ActTx: 4 Rx: 4 En: 3,4
+.br
+LCRC Act: 14-bit En: 14-bit,16-bit,48-bit Mgmt: True
+.br
+LID: 0x00000001-0x00000001 SM LID: 0x00000002 SL: 0
+.br
+QSFP: PassiveCu, 1m FCI Electronics P/N 10131941-2010LF Rev 5
+.br
+Xmit Data: 22581581 MB Pkts: 5100825193
+.br
+Recv Data: 18725619 MB Pkts: 4024569756
+.br
+Link Quality: 5 (Excellent)

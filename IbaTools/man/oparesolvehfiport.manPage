@@ -1,0 +1,107 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH oparesolvehfiport 1 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.SH NAME
+oparesolvehfiport
+
+.NL
+
+.PP
+
+\fB(Host)\fR
+Permits the Intel(R) Omni-Path Fabric Host Software style Intel(R) Omni-Path Host Fabric Interface (HFI) number and port number arguments to be converted to a Host Software style HFI name and physical port number.
+.SH Syntax
+.NL
+oparesolvehfiport [-o \fIoutput\fR] [ \fIhfi\fR] [ \fIport\fR]
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-o \fIoutput\fR 
+.NL
+Specifies the output type.
+
+.RS
+.TP 10
+
+.sp
+devname 
+Prints the device name, in the format hfiname:portnum (default).
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+hfinum 
+Prints the hfi number.
+
+.RE
+
+.TP 10
+\fIhfi\fR 
+.NL
+Specifies the HFI, numbered 1..n. Using 0 specifies that the -p port port is a system-wide port number. (Default is 0.)
+
+.TP 10
+\fIport\fR 
+.NL
+Specifies the port, numbered 1..n. Using 0 specifies the first active port. (Default is 0.)
+
+.IP
+The HFI and port permit a variety of selections:
+.RS
+.TP 10
+
+.sp
+0 0 
+First active port in system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+\fIx\fR 0 
+First active port on HFI \fIx\fR.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+0 \fIy\fR 
+Port \fIy\fR within system (no matter which ports are active).
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+\fIx y\fR 
+HFI \fIx\fR, port \fIy\fR
+
+.RE
+
+.SH Examples 
+.NL
+oparesolvehfiport 0 1 #Output: hfi1\(ul0:1
+.br
+oparesolvehfiport -o devname 0 1 #Output: hfi1\(ul0:1
+.br
+oparesolvehfiport -o hfinum 0 1 #Output: 1

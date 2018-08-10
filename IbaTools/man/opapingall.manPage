@@ -1,0 +1,110 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opapingall 8 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.SH NAME
+opapingall
+
+.NL
+
+.PP
+
+\fB(All)\fR
+Pings a group of hosts or chassis to verify that they are powered on and accessible through TCP/IP ping.
+.SH Syntax
+.NL
+opapingall [-C] [-p] [-f \fIhostfile\fR] [-F \fIchassisfile\fR] [-h \[aq]hosts\[aq]]
+.br
+[-H \[aq]chassis\[aq]]
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-C 
+.NL
+Performs a ping against a chassis. The default is hosts.
+
+.TP 10
+-p 
+.NL
+Pings all hosts/chassis in parallel.
+
+.TP 10
+-f \fIhostfile\fR 
+.NL
+Specifies the file with hosts in cluster.
+.br
+Default is /etc/opa/hosts.
+
+.TP 10
+-F \fIchassisfile\fR 
+.NL
+Specifies the file with chassis in cluster.
+.br
+Default is /etc/opa/chassis.
+
+.TP 10
+-h hosts 
+.NL
+Specifies the list of hosts to ping.
+
+.TP 10
+-H chassis 
+.NL
+Specifies the list of chassis to ping.
+
+.SH Example 
+.NL
+opapingall
+.br
+opapingall -h \[aq]arwen elrond\[aq]
+.br
+HOSTS=\[aq]arwen elrond\[aq] opapingall
+.br
+opapingall -C
+.PP
+
+.B NOTE:
+This command pings all hosts/chassis found in the specified host/chassis file. The use of -C option merely selects the default file and/or environment variable to use. For this command, it is valid to use a file that lists both hosts and chassis.
+
+.br
+opapingall -C -H \[aq]chassis1 chassis2\[aq]
+.br
+CHASSIS=\[aq]chassis1 chassis2\[aq] opapingall -C
+.SH Environment Variables
+.NL
+
+.TP 10
+\fBHOSTS\fR 
+.NL
+List of hosts, used if -h option not supplied.
+
+.TP 10
+\fBCHASSIS\fR 
+.NL
+List of chassis, used if -H option not supplied.
+
+.TP 10
+\fBHOSTS\(ulFILE\fR 
+.NL
+File containing list of hosts, used in absence of -f and -h.
+
+.TP 10
+\fBCHASSIS\(ulFILE\fR 
+.NL
+File containing list of chassis, used in absence of -F and -H.
+
+.TP 10
+\fBFF\(ulMAX\(ulPARALLEL\fR 
+.NL
+When -p option is used, maximum concurrent operations are performed.
