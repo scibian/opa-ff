@@ -1,3 +1,9 @@
+opa-ff (10.7.0.0-133-1ifs+deb9sci9+opa10.7u1) scibian9+opa10.7; urgency=medium
+
+  * Scibian9 with opa10.7 release.
+
+ -- Nicolas Meaux <nicolas-externe.meaux@edf.fr>  Fri, 10 Aug 2018 10:40:14 +0200
+
 opa-ff (10.7.0.0-133-1ifs+deb9) UNRELEASED; urgency=medium
 
   * New upstream version 10.7.0.0-133 from IFS 10.7.0.0.145.
