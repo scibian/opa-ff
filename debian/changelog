@@ -1,7 +1,7 @@
 opa-ff (10.7.0.0-133-1ifs+deb9sci9+opa10.7u1) scibian9+opa10.7; urgency=medium
 
   * Scibian9 with opa10.7 release.
-  * adding Build-Depends libc6-dev for i386 arch
+  * adding Build-Depends libc6-dev-amd64 for i386 arch
 
  -- Nicolas Meaux <nicolas-externe.meaux@edf.fr>  Fri, 10 Aug 2018 10:40:14 +0200
 
