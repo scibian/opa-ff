@@ -2,21 +2,30 @@
 
 BUILDDIR=$(CURDIR)/OpenIb_Host/BUILD
 DESTDIR=$(CURDIR)/debian/tmp
-export LIBDIR=/usr/lib
+LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
 
 %:
 	dh $@ --parallel
 
+.PHONY: override_dh_auto_clean
 override_dh_auto_clean:
 
+.PHONY: override_dh_auto_configure
 override_dh_auto_configure:
 
+.PHONY: override_dh_auto_build
 override_dh_auto_build:
 	mkdir $(BUILDDIR)
-	cd OpenIb_Host && ./ff_build.sh $(BUILDDIR)
+	cd OpenIb_Host && LIBDIR=$(LIBDIR) OPA_FEATURE_SET=opa10 ./ff_build.sh $(BUILDDIR)
 
+.PHONY: override_dh_strip
+override_dh_strip:
+	dh_strip --dbg-package=opa-dbg
+
+.PHONY: override_dh_auto_test
 override_dh_auto_test:
 
+.PHONY: override_dh_auto_install
 override_dh_auto_install:
 	mkdir -p $(DESTDIR)/etc/opa
 	mkdir -p $(DESTDIR)/etc/rdma
@@ -39,7 +48,8 @@ override_dh_auto_install:
 		-name '*.[ch]' \
 		-o -name '*.xlsx' \
 		\) -exec chmod 0644 {} \;
-	ln -s libopamgt.so.0.3.0 $(DESTDIR)/$(LIBDIR)/libopamgt.so.0
+	ln -s libopamgt.so.0.4.0 $(DESTDIR)/$(LIBDIR)/libopamgt.so.0
 	ln -s libopasadb.so.1.0.0 $(DESTDIR)/$(LIBDIR)/libopasadb.so.1
+	ln -s libopasadb.so.1.0.0 $(DESTDIR)/$(LIBDIR)/libopasadb.so
 
 

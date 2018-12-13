@@ -3,7 +3,7 @@ Description: Correct use of unsupported NL macro in manpages
  This patch adds build logic to modify thqt macro in all opa manpages.
 Author: Brian T. Smith <bsmith@systemfabricworks.com>
 Forwarded: no
-Last-Update: <2018-06-22>
+Last-Update: <2017-06-21>
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/IbaTools/man/Makefile

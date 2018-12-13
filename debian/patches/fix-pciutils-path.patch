@@ -1,0 +1,39 @@
+Description: Correct path to pciutils 
+ Some scripts use absolute path for pciutils. Use the correct path
+ for these tools.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2018-11-30>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/IbaTools/nodeverify/nodeverify.sh
++++ b/IbaTools/nodeverify/nodeverify.sh
+@@ -247,7 +247,7 @@
+ 	failure=0
+ 	cd "${outdir}" || fail "Can't cd ${outdir}"
+ 
+-	lspci="${lspci:-/sbin/lspci}"
++	lspci="${lspci:-/usr/bin/lspci}"
+ 	[ ! -x "${lspci}" ] && fail "Can't find lspci"
+ 
+ 	# get OmniPath Intel stand-alone WFR HFI
+@@ -315,7 +315,7 @@
+ 	failure=0
+ 	cd "${outdir}" || fail "Can't cd ${outdir}"
+ 
+-	lspci="${lspci:-/sbin/lspci}"
++	lspci="${lspci:-/usr/bin/lspci}"
+ 	[ ! -x "${lspci}" ] && fail "Can't find lspci"
+ 
+ 	# get OmniPath Intel stand-alone WFR HFI
+@@ -509,8 +509,8 @@
+ 	date
+ 	cd "${outdir}" || fail "Can't cd ${outdir}"
+ 
+-	lspci="${lspci:-/sbin/lspci}"
+-	setpci="${setpci:-/sbin/setpci}"
++	lspci="${lspci:-/usr/bin/lspci}"
++	setpci="${setpci:-/usr/bin/setpci}"
+ 
+ 	[ ! -x "${lspci}" ] && fail "Can't find lspci"
+ 	[ ! -x "${setpci}" ] && fail "Can't find setpci"

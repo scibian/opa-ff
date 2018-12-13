@@ -30,7 +30,6 @@
 
 # Configure user's shell for OPA tools.
 
-
 PATH=$PATH:/usr/sbin
 export PATH
 
