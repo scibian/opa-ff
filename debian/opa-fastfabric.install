@@ -242,6 +242,8 @@ usr/src/opa/mpi_apps/hpl_dat_gen
 usr/src/opa/mpi_apps/mpi_cleanup
 usr/src/opa/mpi_apps/mpi_hosts.sample
 usr/src/opa/mpi_apps/mpicheck
+usr/src/opa/mpi_apps/mpif77
+usr/src/opa/mpi_apps/mpicc
 usr/src/opa/mpi_apps/prepare_run
 usr/src/opa/mpi_apps/run_allhfilatency
 usr/src/opa/mpi_apps/run_alltoall3
@@ -269,7 +271,6 @@ usr/src/opa/mpi_apps/run_multi_lat3
 usr/src/opa/mpi_apps/run_multibw
 usr/src/opa/mpi_apps/run_nxnlatbw
 usr/src/opa/mpi_apps/run_osu
-usr/src/opa/mpi_apps/run_pmb
 usr/src/opa/mpi_apps/runmyapp
 usr/src/opa/mpi_apps/select_mpi
 usr/src/opa/mpi_apps/stop_daemons
