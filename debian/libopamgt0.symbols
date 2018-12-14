@@ -227,6 +227,7 @@ libopamgt.so.0 libopamgt0 #MINVER#
  omgt_sa_get_scsc_table_records@Base 10.6.1.0
  omgt_sa_get_scsl_table_records@Base 10.6.1.0
  omgt_sa_get_scvlnt_table_records@Base 10.6.1.0
+ omgt_sa_get_scvlr_table_records@Base 10.8.0.0
  omgt_sa_get_scvlt_table_records@Base 10.6.1.0
  omgt_sa_get_service_records@Base 10.6.1.0
  omgt_sa_get_slsc_table_records@Base 10.6.1.0

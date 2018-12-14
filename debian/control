@@ -18,14 +18,15 @@ Build-Depends: debhelper (>= 10),
 
 Package: libopamgt-dev
 Section: libdevel
-Architecture: linux-any
+Architecture: amd64
 Depends: libopamgt0 (=${binary:Version}),
          ${misc:Depends},
 Description: Summary: Omni-Path library development headers
  This package contains the necessary headers for opamgt development.
 
 Package: libopamgt0
-Architecture: linux-any
+Architecture: amd64
+Pre-Depends: ${misc:Pre-Depends},
 Depends: libibumad3,
          ${misc:Depends},
          ${shlibs:Depends},
@@ -34,9 +35,10 @@ Description: Omni-Path management API library
  interface with an Omni-Path FM.
 
 Package: opa-address-resolution
-Architecture: linux-any
+Architecture: amd64
 Depends: ibacm,
          opa-basic-tools (=${binary:Version}),
+         libopasadb1 (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends},
 Description: Contains Address Resolution manager
@@ -47,7 +49,7 @@ Description: Contains Address Resolution manager
  database exported by dsap.
 
 Package: opa-basic-tools
-Architecture: linux-any
+Architecture: amd64
 Depends: bc,
          expect,
          libexpat1,
@@ -59,7 +61,7 @@ Description: Management level tools and scripts
  Contains basic tools for fabric management necessary on all compute nodes.
 
 Package: opa-fastfabric
-Architecture: linux-any
+Architecture: amd64
 Depends: expect,
          opa-basic-tools (=${binary:Version}),
          tcl,
@@ -71,3 +73,27 @@ Replaces: opa-basic-tools (=${binary:Version}),
 Conflicts: opa-fast-fabric,
 Description: Management level tools and scripts
  Contains tools for managing fabric on a management node.
+
+Package: libopasadb1
+Section: libs
+Architecture: amd64
+Pre-Depends: ${misc:Pre-Depends},
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Description: Omni-Path dsap API library
+ libopasadb is a library for easy access to the Omni-Path shared memory SA
+ cache exported by the ibacm distributed SA provider (dsap).
+ .
+ This package contains the shared libraries.
+
+Package: libopasadb-dev
+Section: libdevel
+Architecture: amd64
+Depends: libopasadb1 (= ${binary:Version}),
+         ${misc:Depends},
+Description: Development files for libopasadb1
+ libopasadb is a library for easy access to the Omni-Path shared memory SA
+ cache exported by the ibacm distributed SA provider (dsap).
+ .
+ This package is needed to compile programs against libopasadb1.
+ It contains the header files and links needed for compiling.
