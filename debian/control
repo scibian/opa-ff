@@ -3,6 +3,8 @@ Maintainer: Brian T. Smith <bsmith@systemfabricworks.com>
 Section: utils
 Priority: extra
 Standards-Version: 3.9.6
+Vcs-Git: https://github.com/scibian/opa-ff.git
+Vcs-Browser: https://github.com/scibian/opa-ff
 Homepage: http://www.intel.com
 Build-Depends: debhelper (>= 9),
                ibacm,
