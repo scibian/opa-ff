@@ -1,8 +1,0 @@
-makefile-osvendor.patch
-lspci-path.patch
-dpkg-script-support.patch
-fix-manpage-undefined-nl-bad-whatis.patch
-port-comp-scripts.patch
-port-opacapture.patch
-use-make-not-gmake.patch
-fix-bashisms.patch
