@@ -2,7 +2,7 @@
 
 BUILDDIR=$(CURDIR)/OpenIb_Host/BUILD
 DESTDIR=$(CURDIR)/debian/tmp
-LIBDIR=/usr/lib/$(DEB_HOST_MULTIARCH)
+LIBDIR=/usr/lib
 
 %:
 	dh $@ --parallel
