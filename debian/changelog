@@ -1,6 +1,6 @@
 opa-ff (10.8.0.1-1-1ifs+deb8sci8+opa10.8u3) scibian8+opa10.8; urgency=medium
 
-  * Correct libopasadb1.install and bopamgt0.install files  
+  * Correct libopasadb1.install and libopamgt0.install (-dev) files  
 
  -- MHamed Bouaziz <mhamed-externe.bouaziz@edf.fr>  Mon, 25 Mar 2019 19:06:13 +0100
 
