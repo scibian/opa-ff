@@ -2,8 +2,7 @@ makefile-osvendor.patch
 dpkg-script-support.patch
 fix-manpage-undefined-nl-bad-whatis.patch
 port-opacapture.patch
-use-make-not-gmake.patch
 fix-bashisms.patch
 fix-manpage-errors.patch
-fix-install.patch
 fix-pciutils-path.patch
+remove-json-c.patch

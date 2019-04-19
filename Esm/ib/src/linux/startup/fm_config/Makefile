@@ -102,14 +102,14 @@ INCLUDE_SUBDIR		=
 #DEPENDLOCAL	= user defined makedepend flags [Empty]
 #LINTLOCAL	= User defined lint flags [Empty]
 #LOCAL_INCLUDE_DIRS	= User include directories to search for C/C++ headers [Empty]
-#LDLOCAL	= User defined C flags for linking [Empty]
+#DLOCAL	= User defined C flags for linking [Empty]
 #IMPLIBLOCAL	= User flags for Object Lirary Manager [Empty]
 #MIDLLOCAL	= User flags for IDL compiler [Empty]
 #RSCLOCAL	= User flags for resource compiler [Empty]
 #LOCALDEPLIBS	= User libraries to include in dependencies [Empty]
 #LOCALLIBS		= User libraries to use when linking [Empty]
 #				(in addition to LOCALDEPLIBS)
-#LOCAL_LIB_DIRS	= User library directories for libpaths [Empty]
+LOCAL_LIB_DIRS = /usr/lib64
 
 CLOCAL	=  $(CPIE)
 LOCALDEPLIBS = cs ibaccess config public vslogu Xml

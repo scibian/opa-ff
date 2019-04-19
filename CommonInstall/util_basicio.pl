@@ -45,7 +45,7 @@ sub open_log(;$)
 {
 	my($logfile) = shift();
 	if ( "$logfile" eq "" ) {
-		$logfile="$ROOT/var/log/opa.log";
+		$logfile="/var/log/opa.log";
 	}
 	$LogFile = $logfile;
 	open(LOG_FD, ">>$logfile");
@@ -117,7 +117,6 @@ sub getch()
 	system("stty -echo raw");
 	$c=getc(STDIN);
 	system("stty echo -raw");
-	print "\n";
 	return $c;
 }
 
@@ -249,9 +248,9 @@ sub showAnswerHelp()
 	 	printf STDERR "            occur during the operation.  answers to questions which are not\n";
 	 	printf STDERR "            asked are ignored.  Invalid answers will result in prompting\n";
 	 	printf STDERR "            for interactive installs or use of the default for non-interactive.\n";
-		printf STDERR "       Possible Questions:\n";
+		printf STDERR "            Possible Questions:\n";
 		foreach my $help (@AnswerHelp) {
-			printf STDERR "         $help\n";
+			printf STDERR "              $help\n";
 		}
 	} else {
 	 	printf STDERR "       --answer keyword=value - presently ignored\n";

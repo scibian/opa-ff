@@ -36,7 +36,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "topology.h"
 #include "topology_internal.h"
 
-
 // For each device along the path, entry and exit port of device is provided
 // For the FI at the start of the route, only an exit port is provided
 // For the FI at the end of the route, only a entry port is provided
@@ -50,17 +49,26 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // for use in other routines.
 //typedef FSTATUS (RouteCallback_t)(PortData *entryPortp, PortData *exitPortp, void *context);
 
-// lookup dlid in LFT of switch and return portp to exit switch
-static PortData *LookupLFT(NodeData *nodep, STL_LID dlid)
+
+// lookup dlid in routing table of switch and return portp to exit switch
+static PortData *LookupRoute(NodeData *nodep, STL_LID dlid, PortData* inportp, int vl, int sc, int rc)
 {
-	uint8 portNum;
+	uint8 portNum = 0xff;
 	PortData *portp;
 
-	DEBUG_ASSERT(nodep->switchp && nodep->switchp->LinearFDB);	//caller checks
-	if (! dlid || dlid >= nodep->switchp->LinearFDBSize)
+	DEBUG_ASSERT(nodep->switchp);	//caller checks
+	if (!dlid)
 		return NULL;
 
-	portNum = STL_LFT_PORT_BLOCK(nodep->switchp->LinearFDB, dlid);
+	if (nodep->pSwitchInfo->SwitchInfoData.RoutingMode.Enabled == STL_ROUTE_LINEAR) {
+		DEBUG_ASSERT(nodep->switchp->LinearFDB);
+
+		if (dlid >= nodep->switchp->LinearFDBSize)
+			return NULL;
+
+		portNum = STL_LFT_PORT_BLOCK(nodep->switchp->LinearFDB, dlid);
+	}
+
 	if (portNum == 0xff)
 		return NULL;	// invalid table entry, no route
 
@@ -80,7 +88,7 @@ static PortData *LookupLFT(NodeData *nodep, STL_LID dlid)
 // FUNAVAILABLE - no routing tables in FabricData given
 // FNOT_FOUND - unable to find starting port
 // FNOT_DONE - unable to trace route, dlid is a dead end
-FSTATUS WalkRoutePort(FabricData_t *fabricp, PortData *portp, STL_LID dlid, uint8 SL,
+FSTATUS WalkRoutePort(FabricData_t *fabricp, PortData *portp, STL_LID dlid, uint8 SL, uint8 rc,
 			  		RouteCallback_t *callback, void *context)
 {
 	PortData *portp2;	// next port in route
@@ -124,11 +132,13 @@ FSTATUS WalkRoutePort(FabricData_t *fabricp, PortData *portp, STL_LID dlid, uint
 
 		// portp is entry port to a switch
 		switchp = portp->nodep->switchp;
-		if (! switchp || ! switchp->LinearFDB)
+		if (!switchp || (!switchp->LinearFDB &&
+			(portp->nodep->pSwitchInfo->SwitchInfoData.RoutingMode.Enabled == STL_ROUTE_NOP ||
+			 portp->nodep->pSwitchInfo->SwitchInfoData.RoutingMode.Enabled == STL_ROUTE_LINEAR)))
 			// TBD - way to check this before start
 			return FUNAVAILABLE;	// no routing tables in snapshot
 
-		portp2 = LookupLFT(portp->nodep, dlid);
+		portp2 = LookupRoute(portp->nodep, dlid, portp, vl, sc, rc);
 		if (! portp2)
 			return FNOT_DONE;	// no route from slid to dlid
 
@@ -185,7 +195,7 @@ FSTATUS WalkRoute(FabricData_t *fabricp, STL_LID slid, STL_LID dlid,
 	if (! portp)
 		return FNOT_FOUND;
 
-	return WalkRoutePort(fabricp, portp, dlid, 0, callback, context);
+	return WalkRoutePort(fabricp, portp, dlid, 0, 0, callback, context);
 }
 
 struct GenTraceRouteContext_s {
@@ -248,13 +258,13 @@ static FSTATUS GenTraceRouteCallback(PortData *entryPortp, PortData *exitPortp, 
 
 
 // caller must free *ppTraceRecords
-FSTATUS GenTraceRoutePort(FabricData_t *fabricp, PortData *portp, STL_LID dlid,
+FSTATUS GenTraceRoutePort(FabricData_t *fabricp, PortData *portp, STL_LID dlid, uint8 rc,
 	   			STL_TRACE_RECORD **ppTraceRecords, uint32 *pNumTraceRecords)
 {
 	struct GenTraceRouteContext_s context = { 0, NULL};
 	FSTATUS status;
 
-	status = WalkRoutePort(fabricp, portp, dlid, 0, GenTraceRouteCallback, &context);
+	status = WalkRoutePort(fabricp, portp, dlid, 0, rc, GenTraceRouteCallback, &context);
 
 	if (status != FSUCCESS) {
 		if (context.pTraceRecords)
@@ -270,7 +280,7 @@ FSTATUS GenTraceRoutePort(FabricData_t *fabricp, PortData *portp, STL_LID dlid,
 }
 
 // caller must free *ppTraceRecords
-FSTATUS GenTraceRoute(FabricData_t *fabricp, STL_LID slid, STL_LID dlid,
+FSTATUS GenTraceRoute(FabricData_t *fabricp, STL_LID slid, STL_LID dlid, uint8 rc,
 	   			STL_TRACE_RECORD **ppTraceRecords, uint32 *pNumTraceRecords)
 {
 	PortData *portp;
@@ -282,14 +292,14 @@ FSTATUS GenTraceRoute(FabricData_t *fabricp, STL_LID slid, STL_LID dlid,
 		return FNOT_FOUND;
 	}
 
-	return GenTraceRoutePort(fabricp, portp, dlid, ppTraceRecords, pNumTraceRecords);
+	return GenTraceRoutePort(fabricp, portp, dlid, rc, ppTraceRecords, pNumTraceRecords);
 }
 
 // caller must free *ppTraceRecords
-FSTATUS GenTraceRoutePath(FabricData_t *fabricp, IB_PATH_RECORD *pathp,
+FSTATUS GenTraceRoutePath(FabricData_t *fabricp, IB_PATH_RECORD *pathp, uint8 rc,
 	   			STL_TRACE_RECORD **ppTraceRecords, uint32 *pNumTraceRecords)
 {
-	return GenTraceRoute(fabricp, pathp->SLID, pathp->DLID,
+	return GenTraceRoute(fabricp, pathp->SLID, pathp->DLID, rc,
 				   			ppTraceRecords, pNumTraceRecords);
 }
 
@@ -504,7 +514,7 @@ FSTATUS TabulateRoutes(FabricData_t *fabricp, PortData *portp1,
 	// IB is destination routed, so just need starting port, no need to
 	// iterate on all SLIDs for that port
 	status = WalkRoutePort(fabricp, portp1,
-				   portp2->PortInfo.LID, 0,
+				   portp2->PortInfo.LID, 0, 0,
 				   fatTree?TabulateRouteCallbackFatTree:TabulateRouteCallback,
 				   NULL);	// Base LID
 	if (status == FUNAVAILABLE)
@@ -515,7 +525,7 @@ FSTATUS TabulateRoutes(FabricData_t *fabricp, PortData *portp1,
 
 	for (offset = 1; offset < count; offset++) {
 		status = WalkRoutePort(fabricp, portp1,
-				   portp2->PortInfo.LID|offset, 0,
+				   portp2->PortInfo.LID|offset, 0, 0,
 				   fatTree?TabulateRouteCallbackFatTree:TabulateRouteCallback,
 				   (void*)1);	// LMC LID
 		if (status == FUNAVAILABLE)
@@ -527,16 +537,16 @@ FSTATUS TabulateRoutes(FabricData_t *fabricp, PortData *portp1,
 	return FSUCCESS;
 }
 
-
-
-// tabulate all the routes between FIs, exclude loopback routes
-FSTATUS TabulateCARoutes(FabricData_t *fabricp, uint32 *totalPaths,
+// tabulate all the routes between FIs
+FSTATUS TabulateCARoutes(FabricData_t *fabricp, Point *focus, uint32 *totalPaths,
 							uint32 *badPaths, boolean fatTree)
 {
-	LIST_ITEM *n1, *n2;
+	LIST_ITERATOR i, j;
 	cl_map_item_t *p1, *p2;
+	LIST_ITEM *n1, *n2;
 	FSTATUS status;
 	uint32 pathCount, badPathCount;
+	int noOfLeftNodes, noOfRightNodes;
 
 	*totalPaths = 0;
 	*badPaths = 0;
@@ -546,25 +556,35 @@ FSTATUS TabulateCARoutes(FabricData_t *fabricp, uint32 *totalPaths,
 	if (fatTree)
 		DetermineSwitchTiers(fabricp);
 
-	// TBD - because IB is DLID routed, can save effort by getting routes from
-	// 1 FI per switch to all other FIs (or all FIs on other switches) and
-	// then multiply the result for that FI by the number of FIs on that switch
-	// In a pure fattree such an approach would reduce N*N to (N/18)*(N/18)
-	// so it would have a 18*18 reduction in effort, provided the cost of
-	// finding FIs is not to high, maybe we can loop here based on all switches?
-	for (n1=QListHead(&fabricp->AllFIs); n1 != NULL; n1 = QListNext(&fabricp->AllFIs, n1)) {
-		NodeData *nodep1 = (NodeData *)QListObj(n1);
-		for (p1=cl_qmap_head(&nodep1->Ports); p1 != cl_qmap_end(&nodep1->Ports); p1 = cl_qmap_next(p1)) {
-			PortData *portp1 = PARENT_STRUCT(p1, PortData, NodePortsEntry);
+	/* If there is FI in the node pair list only tabulate routes for the specified pairs*/
+	if(PointHaveFI(focus) && PointTypeIsNodePairList(focus)){
 
-			for (n2=QListHead(&fabricp->AllFIs); n2 != NULL; n2 = QListNext(&fabricp->AllFIs, n2)) {
-				NodeData *nodep2 = (NodeData *)QListObj(n2);
+		DLIST *pList1 = &focus->u.nodePairList.nodePairList1;
+		DLIST *pList2 = &focus->u.nodePairList.nodePairList2;
 
-				// enable this if we want to skip node to self paths
-				//if (nodep1 == nodep2) continue;
+		noOfLeftNodes = ListCount(pList1);
+		noOfRightNodes = ListCount(pList2);
 
-				for (p2=cl_qmap_head(&nodep2->Ports); p2 != cl_qmap_end(&nodep2->Ports); p2 = cl_qmap_next(p2)) {
+		if (noOfLeftNodes != noOfRightNodes) {
+			fprintf(stderr, "%s: Pairs are not complete \n", g_Top_cmdname);
+			return FINVALID_PARAMETER;
+		}
+
+		for (i = ListHead(pList1), j = ListHead(pList2); (i != NULL && j != NULL);
+				i = ListNext(pList1, i), j = ListNext(pList2, j) ) {
+			NodeData *nodepFromList1 = (NodeData*)ListObj(i);
+			NodeData *nodepFromList2 = (NodeData*)ListObj(j);
+
+			//skip switches
+			if ((nodepFromList1->NodeInfo.NodeType == STL_NODE_SW) || (nodepFromList2->NodeInfo.NodeType == STL_NODE_SW))
+				continue;
+
+			for (p1=cl_qmap_head(&nodepFromList1->Ports); p1 != cl_qmap_end(&nodepFromList1->Ports); p1 = cl_qmap_next(p1)) {
+				PortData *portp1 = PARENT_STRUCT(p1, PortData, NodePortsEntry);
+
+				for (p2=cl_qmap_head(&nodepFromList2->Ports); p2 != cl_qmap_end(&nodepFromList2->Ports); p2 = cl_qmap_next(p2)) {
 					PortData *portp2 = PARENT_STRUCT(p2, PortData, NodePortsEntry);
+
 					// skip loopback paths
 					if (portp1 == portp2) continue;
 					status = TabulateRoutes(fabricp, portp1, portp2, &pathCount, &badPathCount, fatTree);
@@ -572,6 +592,65 @@ FSTATUS TabulateCARoutes(FabricData_t *fabricp, uint32 *totalPaths,
 						return status;
 					*totalPaths += pathCount;
 					*badPaths += badPathCount;
+				}
+			}
+		}
+	/* If there is FI in the list, make N x N pairs and  tabulate routes for the formed pairs*/
+	}else if(PointHaveFI(focus)){
+		FIPortIterator a, b;
+		PortData *portp1, *portp2;
+		//point type which haveFI and only matches 1 node is invalid and should return error
+		if((POINT_TYPE_PORT == focus->Type) || (POINT_TYPE_NODE == focus->Type) ||
+#if !defined(VXWORKS) || defined(BUILD_DMC)
+			(POINT_TYPE_IOC == focus->Type) ||
+			((POINT_TYPE_IOC_LIST == focus->Type) && (1 == ListCount(&focus->u.iocList)))||
+#endif
+			((POINT_TYPE_PORT_LIST == focus->Type) && (1 == ListCount(&focus->u.portList)))||
+			((POINT_TYPE_NODE_LIST == focus->Type) && (1 == ListCount(&focus->u.nodeList)))||
+			((POINT_TYPE_SYSTEM == focus->Type) && (1 == cl_qmap_count(&focus->u.systemp->Nodes)))){
+			status = FINVALID_PARAMETER;
+			return status;
+		}
+		for(portp1 = FIPortIteratorHead(&a, focus); portp1 != NULL; portp1 = FIPortIteratorNext(&a) ) {
+			for(portp2 = FIPortIteratorHead(&b, focus); portp2 != NULL; portp2 = FIPortIteratorNext(&b) ) {
+				// skip loopback paths
+				if (portp1 == portp2)
+					continue;
+				status = TabulateRoutes(fabricp, portp1, portp2, &pathCount, &badPathCount, fatTree);
+				if (status == FUNAVAILABLE)
+					return status;
+				*totalPaths += pathCount;
+				*badPaths += badPathCount;
+			}
+		}
+	} else {
+		// TBD - because IB is DLID routed, can save effort by getting routes from
+		// 1 FI per switch to all other FIs (or all FIs on other switches) and
+		// then multiply the result for that FI by the number of FIs on that switch
+		// In a pure fattree such an approach would reduce N*N to (N/18)*(N/18)
+		// so it would have a 18*18 reduction in effort, provided the cost of
+		// finding FIs is not to high, maybe we can loop here based on all switches?
+		for (n1=QListHead(&fabricp->AllFIs); n1 != NULL; n1 = QListNext(&fabricp->AllFIs, n1)) {
+			NodeData *nodep1 = (NodeData *)QListObj(n1);
+			for (p1=cl_qmap_head(&nodep1->Ports); p1 != cl_qmap_end(&nodep1->Ports); p1 = cl_qmap_next(p1)) {
+				PortData *portp1 = PARENT_STRUCT(p1, PortData, NodePortsEntry);
+
+				for (n2=QListHead(&fabricp->AllFIs); n2 != NULL; n2 = QListNext(&fabricp->AllFIs, n2)) {
+					NodeData *nodep2 = (NodeData *)QListObj(n2);
+
+					// enable this if we want to skip node to self paths
+					//if (nodep1 == nodep2) continue;
+
+					for (p2=cl_qmap_head(&nodep2->Ports); p2 != cl_qmap_end(&nodep2->Ports); p2 = cl_qmap_next(p2)) {
+						PortData *portp2 = PARENT_STRUCT(p2, PortData, NodePortsEntry);
+						// skip loopback paths
+						if (portp1 == portp2) continue;
+							status = TabulateRoutes(fabricp, portp1, portp2, &pathCount, &badPathCount, fatTree);
+						if (status == FUNAVAILABLE)
+							return status;
+						*totalPaths += pathCount;
+						*badPaths += badPathCount;
+					}
 				}
 			}
 		}
@@ -643,7 +722,7 @@ FSTATUS ReportRoutes(FabricData_t *fabricp,
 	ReportContext.dlid = portp2->PortInfo.LID;
 	ReportContext.isBaseLid = TRUE;
 	status = WalkRoutePort(fabricp, portp1,
-				   portp2->PortInfo.LID, 0,
+				   portp2->PortInfo.LID, 0, 0,
 				   fatTree?ReportRouteCallbackFatTree:ReportRouteCallback,
 				   &ReportContext);	// Base LID
 	if (status == FUNAVAILABLE)
@@ -655,7 +734,7 @@ FSTATUS ReportRoutes(FabricData_t *fabricp,
 		ReportContext.dlid = portp2->PortInfo.LID|offset;
 		ReportContext.isBaseLid = FALSE;
 		status = WalkRoutePort(fabricp, portp1,
-				   portp2->PortInfo.LID|offset, 0,
+				   portp2->PortInfo.LID|offset, 0, 0,
 				   fatTree?ReportRouteCallbackFatTree:ReportRouteCallback,
 				   &ReportContext);	// LMC LID
 		if (status == FUNAVAILABLE)
@@ -823,8 +902,8 @@ static FSTATUS getSLSCInfo(FabricData_t *fabricp, EUI64 portGuid, int quiet, uin
 // report all routes from portp1 to portp2
 FSTATUS ValidateRoutes(FabricData_t *fabricp,
 			   			PortData *portp1, PortData *portp2,
-			   			uint32 *totalPaths, uint32 *badPaths,
-						uint32 usedSLs,
+						uint32 *totalPaths, uint32 *badPaths,
+						uint32 usedSLs, uint8 rc,
 					   	ValidateCallback_t callback, void *context,
 			   			ValidateCallback2_t callback2, void *context2)
 {
@@ -843,7 +922,7 @@ FSTATUS ValidateRoutes(FabricData_t *fabricp,
 	for (sl = 0; sl < STL_MAX_SLS; sl++) {
  		if ((usedSLs == 0 && sl == 0) || (usedSLs >> sl) & 1) {
 			status = WalkRoutePort(fabricp, portp1,
-				portp2->PortInfo.LID, sl,
+				portp2->PortInfo.LID, sl, rc,
 				ValidateRouteCallback, NULL);	// Base LID
 		} else {
 			continue;
@@ -859,7 +938,7 @@ FSTATUS ValidateRoutes(FabricData_t *fabricp,
 			if (callback2) {
 				// re-walk route and output details of each hop
 				(void)WalkRoutePort(fabricp, portp1,
-							portp2->PortInfo.LID, 0,
+							portp2->PortInfo.LID, 0, rc,
 							ValidateRouteCallback2, &ValidateContext2);
 				(*callback2)(NULL, 0, context2);	// close out path
 			}
@@ -867,7 +946,7 @@ FSTATUS ValidateRoutes(FabricData_t *fabricp,
 
 		for (offset = 1; offset < count; offset++) {
 			status = WalkRoutePort(fabricp, portp1,
-				   portp2->PortInfo.LID|offset, sl,
+				   portp2->PortInfo.LID|offset, sl, rc,
 				   ValidateRouteCallback, NULL);	// LMC LID
 			if (status == FUNAVAILABLE)
 				return status;
@@ -879,7 +958,7 @@ FSTATUS ValidateRoutes(FabricData_t *fabricp,
 				if (callback2) {
 					// re-walk route and output details of each hop
 					(void)WalkRoutePort(fabricp, portp1,
-							portp2->PortInfo.LID, 0,
+							portp2->PortInfo.LID, 0, rc,
 							ValidateRouteCallback2, &ValidateContext2);
 					(*callback2)(NULL, 0, context2); 	// close out path
 				}
@@ -892,7 +971,7 @@ FSTATUS ValidateRoutes(FabricData_t *fabricp,
 
 
 // validate all the routes between all LIDs, exclude loopback routes
-FSTATUS ValidateAllRoutes(FabricData_t *fabricp, EUI64 portGuid,
+FSTATUS ValidateAllRoutes(FabricData_t *fabricp, EUI64 portGuid, uint8 rc,
 			   				uint32 *totalPaths, uint32 *badPaths,
 			   				ValidateCallback_t callback, void *context,
 			   				ValidateCallback2_t callback2, void *context2,
@@ -937,7 +1016,7 @@ FSTATUS ValidateAllRoutes(FabricData_t *fabricp, EUI64 portGuid,
 					}
 					// skip loopback paths
 					if (portp1 == portp2) continue;
-					status = ValidateRoutes(fabricp, portp1, portp2, &pathCount, &badPathCount, usedSLs, callback, context, callback2, context2);
+					status = ValidateRoutes(fabricp, portp1, portp2, &pathCount, &badPathCount, usedSLs, rc, callback, context, callback2, context2);
 					if (status == FUNAVAILABLE)
 						return status;
 					(*totalPaths) += pathCount;
@@ -1390,7 +1469,7 @@ void FreeValidateMCRoutes(FabricData_t *fabricp)
 
 #ifndef __VXWORKS__
 
-static FSTATUS CLGetRoute(FabricData_t *fabricp, EUI64 portGuid, 
+static FSTATUS CLGetRoute(FabricData_t *fabricp, EUI64 portGuid, uint8 rc,
                           PortData *portp1, PortData *portp2, 
                           IB_PATH_RECORD *pathp, uint32 *totalPaths, uint32 *totalBadPaths, 
                           ValidateCLRouteCallback_t callback, void *context, uint8 snapshotInFile,
@@ -1434,7 +1513,7 @@ static FSTATUS CLGetRoute(FabricData_t *fabricp, EUI64 portGuid,
    }
 
    // get trace route for path
-   status = GenTraceRoutePath(fabricp, pathp, &pTraceRecords, &NumTraceRecords);
+   status = GenTraceRoutePath(fabricp, pathp, rc, &pTraceRecords, &NumTraceRecords);
    
    if (NumTraceRecords <= 0)
       goto badroute;
@@ -1571,7 +1650,7 @@ badroute:
    goto done;
 }
 
-static FSTATUS CLGetRoutes(FabricData_t *fabricp, EUI64 portGuid, 
+static FSTATUS CLGetRoutes(FabricData_t *fabricp, EUI64 portGuid, uint8 rc,  
                            PortData *portp1, PortData *portp2, 
                            uint32 *totalPaths, uint32 *totalBadPaths, 
                            ValidateCLRouteCallback_t callback, void *context,
@@ -1586,7 +1665,7 @@ static FSTATUS CLGetRoutes(FabricData_t *fabricp, EUI64 portGuid,
    status = GenPaths(fabricp, portp1, portp2, &pPathRecords, &NumPathRecords);
 
    for (i = 0; i < NumPathRecords; i++) {
-      CLGetRoute(fabricp, portGuid, portp1, portp2, &pPathRecords[i], 
+      CLGetRoute(fabricp, portGuid, rc, portp1, portp2, &pPathRecords[i], 
                  totalPaths, totalBadPaths, callback, context, snapshotInFile,
                  usedSCs);
    }
@@ -1597,7 +1676,7 @@ static FSTATUS CLGetRoutes(FabricData_t *fabricp, EUI64 portGuid,
    return status;
 }
 
-FSTATUS ValidateAllCreditLoopRoutes(FabricData_t *fabricp, EUI64 portGuid, 
+FSTATUS ValidateAllCreditLoopRoutes(FabricData_t *fabricp, EUI64 portGuid, uint8 rc,  
                                     ValidateCLRouteCallback_t routeCallback, 
                                     ValidateCLFabricSummaryCallback_t fabricSummaryCallback, 
                                     ValidateCLDataSummaryCallback_t dataSummaryCallback, 
@@ -1669,7 +1748,7 @@ FSTATUS ValidateAllCreditLoopRoutes(FabricData_t *fabricp, EUI64 portGuid,
                if (portp1 == portp2) 
                   continue; 
                
-               if (FUNAVAILABLE == (status = CLGetRoutes(fabricp, portGuid, portp1, portp2, 
+               if (FUNAVAILABLE == (status = CLGetRoutes(fabricp, portGuid, rc, portp1, portp2, 
                                                          &totalPaths, &totalBadPaths, 
                                                          routeCallback, context, snapshotInFile,
                                                          usedSCs)))

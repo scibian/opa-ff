@@ -1,3 +1,11 @@
+Description: Correct behavior of ff_install.sh
+ Some of the installed scripts shbang /bin/sh, but have bashisms.
+ Quick fix is to shbang /bin/bash
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2019-02-06>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/OpenIb_Host/ff_install.sh
 +++ b/OpenIb_Host/ff_install.sh
 @@ -32,6 +32,7 @@
@@ -8,17 +16,3 @@
  
  #Binaries and scripts installing (basic tools)
  #cd builtbin.OPENIB_FF.release
-@@ -104,10 +105,10 @@
- #Libraries installing
- #cd ../builtlibs.OPENIB_FF.release
- cd $(cat $BUILDDIR/LIB_PATH)
--cp -t ${DESTDIR}/${DSAP_LIBDIR} libopasadb.so.*
-+cp -t ${DESTDIR}/${LIBDIR} libopasadb.so.*
- cp -t ${DESTDIR}/${DSAP_LIBDIR}/ibacm libdsap.so.*
--cp -t ${DESTDIR}/usr/lib libopamgt.so.*
--ln -s libopamgt.so.${OPAMGT_VERNO_MAJOR} ${DESTDIR}/usr/lib/libopamgt.so
-+cp -t ${DESTDIR}/${LIBDIR} libopamgt.so.*
-+ln -s libopamgt.so.${OPAMGT_VERNO_MAJOR} ${DESTDIR}/${LIBDIR}/libopamgt.so
- 
- 
- # Now that we've put everything in the buildroot, copy any default config files to their expected location for user

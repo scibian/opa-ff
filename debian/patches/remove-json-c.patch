@@ -1,0 +1,30 @@
+Description: Remove json-c dependency
+ The make rules specify a dependency on json-c. But there is no code that
+ uses json-c. Remove the dependency.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2019-02-19>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/opasadb/lib/Makefile
++++ b/opasadb/lib/Makefile
+@@ -131,7 +131,7 @@
+ ifeq ($(shell cat path/opasadb_static_db.c),)
+ LOCALLIBS       = $(OPENIB_USER_LIBS) rt
+ else
+-LOCALLIBS       = $(OPENIB_USER_LIBS) rt json-c
++LOCALLIBS       = $(OPENIB_USER_LIBS) rt
+ endif
+ # User library directories for libpaths
+ LOCAL_LIB_DIRS	= $(OPENIB_USER_LIB_DIRS) $(IBACCESS_USER_LIB_DIRS)
+@@ -139,8 +139,8 @@
+ # Include Make Rules definitions and rules
+ include $(TL_DIR)/IbaTools/Makerules.module
+ 
+-CLOCAL += $(shell pkg-config --cflags json-c)
+-LDLOCAL+= $(shell pkg-config --libs json-c)
++CLOCAL +=
++LDLOCAL+=
+ 
+ #=============================================================================#
+ # Overrides:

@@ -8,12 +8,12 @@ Last-Update: <2018-10-03>
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/IbaTools/man/opagetvf_env.manPage
 +++ b/IbaTools/man/opagetvf_env.manPage
-@@ -82,7 +82,7 @@
+@@ -91,7 +91,7 @@
+ .PP
  
- .SH Function Example
- .NL
+ .br
 -. /usr/sbin/opagetvf\(ulenv
-+\[char46] /usr/sbin/opagetvf_env
++\[char46] /usr/sbin/opagetvf\(ulenv
  .br
  
  .br

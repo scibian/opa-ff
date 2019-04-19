@@ -5,84 +5,42 @@ Priority: extra
 Standards-Version: 3.9.6
 Homepage: http://www.intel.com
 Build-Depends: debhelper (>= 9),
-               ibacm,
+               ibacm (>= 1.2.0),
                libexpat-dev,
-               libibmad-dev,
-               libibumad-dev,
-               libibverbs-dev,
+               libibumad-dev (>= 1.3.10.2),
+               libibverbs-dev (>= 1.1.2),
                libncurses5-dev,
-               libopensm-dev,
-               libssl-dev,
+               libssl-dev (>= 1.0.1),
                tcl-dev,
-               zlib1g-dev,
 
 Package: libopamgt-dev
 Section: libdevel
-Architecture: linux-any
+Architecture: amd64
 Depends: libopamgt0 (=${binary:Version}),
          ${misc:Depends},
 Description: Summary: Omni-Path library development headers
  This package contains the necessary headers for opamgt development.
 
 Package: libopamgt0
-Architecture: linux-any
+Architecture: amd64
 Pre-Depends: ${misc:Pre-Depends},
-Depends: libibumad3,
-         ${misc:Depends},
+Depends: ${misc:Depends},
          ${shlibs:Depends},
 Description: Omni-Path management API library
  This package contains the library necessary to build applications that
  interface with an Omni-Path FM.
 
-Package: opa-address-resolution
-Architecture: linux-any
-Depends: ibacm,
-         opa-basic-tools (=${binary:Version}),
-         libopasadb1 (= ${binary:Version}),
+Package: libopasadb-dev
+Section: libdevel
+Architecture: amd64
+Depends: libopasadb1 (= ${binary:Version}),
          ${misc:Depends},
-         ${shlibs:Depends},
-Description: Contains Address Resolution manager
- This package contains the ibacm distributed SA provider (dsap) for name
- and address resolution on OPA platform.
+Description: Development files for libopasadb1
+ libopasadb is a library for easy access to the Omni-Path shared memory SA
+ cache exported by the ibacm distributed SA provider (dsap).
  .
- It also contains the library and tools to access the shared memory
- database exported by dsap.
-
-Package: opa-basic-tools
-Architecture: linux-any
-Depends: bc,
-         expect,
-         pciutils,
-         tcl,
-         ${misc:Depends},
-         ${perl:Depends},
-         ${shlibs:Depends},
-Description: Management level tools and scripts
- Contains basic tools for fabric management necessary on all compute nodes.
-
-Package: opa-dbg
-Architecture: linux-any
-Section: debug
-Depends: opa-basic-tools (=${binary:Version}),
-         ${misc:Depends},
-Description: Debug information for package opa
- This package provides debug information for package opa.
- Debug information is useful when developing applications that use this
- package or when debugging this package.
-
-Package: opa-fastfabric
-Architecture: linux-any
-Depends: expect,
-         opa-basic-tools (=${binary:Version}),
-         tcl,
-         ${misc:Depends},
-         ${perl:Depends},
-         ${shlibs:Depends},
-Replaces: opa-basic-tools (=${binary:Version}),
-          opa-fast-fabric,
-Conflicts: opa-fast-fabric,
-Description: Management level tools and scripts
- Contains tools for managing fabric on a management node.
+ This package is needed to compile programs against libopasadb1.
+ It contains the header files and links needed for compiling.
 
 Package: libopasadb1
 Section: libs
@@ -96,14 +54,62 @@ Description: Omni-Path dsap API library
  .
  This package contains the shared libraries.
 
-Package: libopasadb-dev
-Section: libdevel
+Package: opa-address-resolution
 Architecture: amd64
-Depends: libopasadb1 (= ${binary:Version}),
+Pre-Depends: ${misc:Pre-Depends},
+Depends: ibacm (>= 1.2.0),
+         libopasadb1 (= ${binary:Version}),
          ${misc:Depends},
-Description: Development files for libopasadb1
- libopasadb is a library for easy access to the Omni-Path shared memory SA
- cache exported by the ibacm distributed SA provider (dsap).
+         ${shlibs:Depends},
+Description: Contains Address Resolution manager
+ This package contains the ibacm distributed SA provider (dsap) for name
+ and address resolution on OPA platform.
  .
- This package is needed to compile programs against libopasadb1.
- It contains the header files and links needed for compiling.
+ It also contains the library and tools to access the shared memory
+ database exported by dsap.
+
+Package: opa-basic-tools
+Architecture: amd64
+Depends: bc,
+         expect,
+         linux-cpupower,
+         pciutils,
+         tcl,
+         ${misc:Depends},
+         ${perl:Depends},
+         ${shlibs:Depends},
+Description: Management level tools and scripts
+ Contains basic tools for fabric management necessary on all compute nodes.
+
+Package: opa-dbg
+Architecture: amd64
+Section: debug
+Depends: opa-basic-tools (=${binary:Version}),
+         ${misc:Depends},
+Description: Debug information for package opa
+ This package provides debug information for package opa.
+ Debug information is useful when developing applications that use this
+ package or when debugging this package.
+
+Package: opa-fastfabric
+Architecture: amd64
+Depends: cron | cron-daemon,
+         expect,
+         opa-basic-tools (=${binary:Version}),
+         tcl,
+         ${misc:Depends},
+         ${perl:Depends},
+         ${shlibs:Depends},
+Replaces: opa-basic-tools,
+          opa-fast-fabric,
+Conflicts: opa-fast-fabric,
+Description: Management level tools and scripts
+ Contains tools for managing fabric on a management node.
+
+Package: opa-snapconfig
+Architecture: amd64
+Depends: opa-fastfabric (=${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends},
+Description: Configure fabric with snapshot file
+ Parse information from provided snapshot file and issue packets to program.
