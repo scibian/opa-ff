@@ -1,12 +1,12 @@
 .\" .\" *********************************************************************
 .\" .\" *                                                                   *
-.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
 .\" .\" *                                                                   *
 .\" .\" *                       All Rights Reserved.                        *
 .\" .\" *                                                                   *
 .\" .\" *********************************************************************
 
-.TH opaswenableall 8 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.TH opaswenableall 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
 .SH NAME
 opaswenableall
 
@@ -18,7 +18,7 @@ opaswenableall
 Re-enables all unused (or disabled) switch ports.
 .SH Syntax
 .NL
-opaswenableall [-t \fIportsfile\fR] [-p \fIports\fR] [-F \fIfocus\fR] [-K \fImkey\fR]
+opaswenableall [-t \fIportsfile\fR] [-p \fIports\fR] [-F \fIfocus\fR]
 .SH Options
 .NL
 
@@ -81,11 +81,6 @@ HFI \fIx\fR, port \fIy\fR.
 -F \fIfocus\fR 
 .NL
 Specifies an opareport -style focus argument to limit the scope of operation.
-
-.TP 10
--K \fImkey\fR 
-.NL
-Specifies the SM management key to access remote ports.
 
 .SH Examples 
 .NL

@@ -158,8 +158,7 @@ int main(int argc, char *argv[])
 
 			case 't':
 				errno = 0;
-				strncpy(parameter, optarg, sizeof(parameter)-1);
-				parameter[sizeof(parameter)-1] = 0;
+				StringCopy(parameter, optarg, sizeof(parameter));
 				if ((p = strchr(parameter, ',')) != NULL) {
 					*p = '\0';
 				}
@@ -214,8 +213,7 @@ int main(int argc, char *argv[])
 
 			case 's':
 				g_gotStrParam = 1;
-				strncpy(strParameter, optarg, sizeof(strParameter));
-				strParameter[sizeof(strParameter)-1]=0; // Ensure null termination.
+				StringCopy(strParameter, optarg, sizeof(strParameter));
 				break;
 
 			case 'i':

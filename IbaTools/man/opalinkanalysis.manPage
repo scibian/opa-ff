@@ -1,12 +1,12 @@
 .\" .\" *********************************************************************
 .\" .\" *                                                                   *
-.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
 .\" .\" *                                                                   *
 .\" .\" *                       All Rights Reserved.                        *
 .\" .\" *                                                                   *
 .\" .\" *********************************************************************
 
-.TH opalinkanalysis 8 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.TH opalinkanalysis 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
 .SH NAME
 opalinkanalysis
 
@@ -39,7 +39,7 @@ Omits unexpected devices and links in punchlist file from verify reports.
 .TP 10
 -t \fIportsfile\fR 
 .NL
-Specifies the file with list of local HFI ports used to access fabric(s) for analysis, default is /etc/opa/ports.
+Specifies the file with list of local HFI ports used to access fabric(s) for analysis. Default is /etc/opa/ports.
 
 .TP 10
 -p \fIports\fR 
@@ -225,7 +225,7 @@ Verifies switches against topology input.
 
 .sp
 verifynodes 
-Verifies FIs, switches, and routers against topology input.
+Verifies FIs and switches against topology input.
 
 .RE
 
@@ -243,7 +243,7 @@ Verifies SMs against topology input.
 
 .sp
 verifyall 
-Verifies links, FIs, switches, routers, and SMs against topology input.
+Verifies links, FIs, switches, and SMs against topology input.
 
 .RE
 

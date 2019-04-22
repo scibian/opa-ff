@@ -1,15 +1,16 @@
-Description: Port opaconfig to Debian.
- Use dpkg instead of rpm. Change opa-fm-debuginfo to opa-fm-dbg.
- Correct path to lspci. Add Debian config dirs. Use cpufreq-info
- instead of cpupower. Add directory for Debian opa-mpi-apps.
+Description: Port opacapture to Debian.
+ Use dpkg instead of rpm.
+ Change opa-fm-debuginfo to opa-fm-dbg.
+ Add Debian config dirs.
+ Add directory for Debian opa-mpi-apps.
 Author: Brian T. Smith <bsmith@systemfabricworks.com>
 Forwarded: no
-Last-Update: <2018-06-22>
+Last-Update: <2019-03-13>
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/OpenIb_Host/LINUX/opacapture.sh
 +++ b/OpenIb_Host/LINUX/opacapture.sh
-@@ -132,25 +132,43 @@
+@@ -132,21 +132,35 @@
  echo "Getting software and firmware version information ..."
  echo "[ICS VERSION STRING: unknown]" > /$dir/sw_version
  uname -a > /$dir/os_version
@@ -44,17 +45,8 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 +fi
  tar -zcf /$dir/opa-fm-bins.tgz /usr/lib/opa-fm/runtime/ > /dev/null 2>&1
  
-+LSPCI=/sbin/lspci
-+if [ -f /etc/debian_version ] ; then
-+	LSPCI=/usr/bin/lspci
-+fi
  # Finding the PCI devices
--for fw in `/usr/bin/lspci -n | grep "8086:24f0"`
-+for fw in `$LSPCI -n | grep "8086:24f0"`
- do
- 	# Just get the PCI info for now...
- 	echo "$fw" >> /$dir/fw_info 
-@@ -186,7 +204,11 @@
+@@ -186,7 +200,11 @@
  if [ $(command -v systemctl) ]; then
  	systemctl list-unit-files > /$dir/chkconfig.systemd
  fi
@@ -66,28 +58,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  ulimit -a > /$dir/ulimit
  uptime > /$dir/uptime
  
-@@ -200,7 +222,7 @@
- ps -welf > /$dir/ps 2>&1
- 
- echo "Obtaining PCI device list ..."
--lspci -vvv -xxxx > /$dir/lspci 2>&1
-+$LSPCI -vvv -xxxx > /$dir/lspci 2>&1
- ls -l /dev/ipath* /dev/hfi* /dev/infiniband > /$dir/lsdev
- 
- echo "Obtaining environment variables ..."
-@@ -243,7 +265,11 @@
- done
- 
- echo "Obtaining additional CPU info..."
-+if [ -f /etc/debian_version ]; then
-+	cpufreq-info > /$dir/cpupower-freq-info
-+else
- cpupower frequency-info > /$dir/cpupower-freq-info
-+fi
- 
- # Check if HFI driver debug data dir) is present; log only if present
- HFI_DEBUGDIR="/sys/kernel/debug/hfi1"
-@@ -391,7 +417,7 @@
+@@ -486,7 +504,7 @@
  
  cd /
  files="$dir"
@@ -96,7 +67,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  do
  	if [ -e "$f" ]
  	then
-@@ -414,7 +440,7 @@
+@@ -509,7 +527,7 @@
  	done
  fi
  

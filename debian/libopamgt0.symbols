@@ -31,6 +31,7 @@ libopamgt.so.0 libopamgt0 #MINVER#
  STL2IB_NODE_INFO@Base 10.6.1.0
  STL2IB_PORT_INFO@Base 10.6.1.0
  STL2IB_SWITCH_INFO@Base 10.6.1.0
+ StringConcat@Base 10.9.1.0
  StringToDateTime@Base 10.6.1.0
  StringToGid@Base 10.6.1.0
  StringToInt16@Base 10.6.1.0
@@ -63,12 +64,14 @@ libopamgt.so.0 libopamgt0 #MINVER#
  iba_pa_multi_mad_get_image_info_response_query@Base 10.6.1.0
  iba_pa_multi_mad_group_config_response_query@Base 10.6.1.0
  iba_pa_multi_mad_group_linkinfo_response_query@Base 10.7.0.0
+ iba_pa_multi_mad_group_list2_response_query@Base 10.9.0.1
  iba_pa_multi_mad_group_list_response_query@Base 10.6.1.0
  iba_pa_multi_mad_group_nodeinfo_response_query@Base 10.7.0.0
  iba_pa_multi_mad_group_stats_response_query@Base 10.6.1.0
  iba_pa_multi_mad_vf_config_response_query@Base 10.6.1.0
  iba_pa_multi_mad_vf_focus_ports_response_query@Base 10.6.1.0
  iba_pa_multi_mad_vf_info_response_query@Base 10.6.1.0
+ iba_pa_multi_mad_vf_list2_response_query@Base 10.9.0.1
  iba_pa_multi_mad_vf_list_response_query@Base 10.6.1.0
  iba_pa_query_input_type_msg@Base 10.6.1.0
  iba_pa_query_master_pm_lid@Base 10.6.1.0
@@ -147,6 +150,7 @@ libopamgt.so.0 libopamgt0 #MINVER#
  omgt_pa_get_group_focus@Base 10.6.1.0
  omgt_pa_get_group_info@Base 10.6.1.0
  omgt_pa_get_group_linkinfo@Base 10.7.0.0
+ omgt_pa_get_group_list2@Base 10.9.0.1
  omgt_pa_get_group_list@Base 10.6.1.0
  omgt_pa_get_group_nodeinfo@Base 10.7.0.0
  omgt_pa_get_image_info@Base 10.6.1.0
@@ -156,6 +160,7 @@ libopamgt.so.0 libopamgt0 #MINVER#
  omgt_pa_get_vf_config@Base 10.6.1.0
  omgt_pa_get_vf_focus@Base 10.6.1.0
  omgt_pa_get_vf_info@Base 10.6.1.0
+ omgt_pa_get_vf_list2@Base 10.9.0.1
  omgt_pa_get_vf_list@Base 10.6.1.0
  omgt_pa_get_vf_port_stats2@Base 10.7.0.0
  omgt_pa_get_vf_port_stats@Base 10.6.1.0
@@ -163,11 +168,13 @@ libopamgt.so.0 libopamgt0 #MINVER#
  omgt_pa_release_group_config@Base 10.6.1.0
  omgt_pa_release_group_focus@Base 10.6.1.0
  omgt_pa_release_group_linkinfo@Base 10.7.0.0
+ omgt_pa_release_group_list2@Base 10.9.0.1
  omgt_pa_release_group_list@Base 10.6.1.0
  omgt_pa_release_group_nodeinfo@Base 10.7.0.0
  omgt_pa_release_image@Base 10.6.1.0
  omgt_pa_release_vf_config@Base 10.6.1.0
  omgt_pa_release_vf_focus@Base 10.6.1.0
+ omgt_pa_release_vf_list2@Base 10.9.0.1
  omgt_pa_release_vf_list@Base 10.6.1.0
  omgt_pa_renew_image@Base 10.6.1.0
  omgt_pa_service_connect@Base 10.6.1.0
@@ -227,6 +234,7 @@ libopamgt.so.0 libopamgt0 #MINVER#
  omgt_sa_get_scsc_table_records@Base 10.6.1.0
  omgt_sa_get_scsl_table_records@Base 10.6.1.0
  omgt_sa_get_scvlnt_table_records@Base 10.6.1.0
+ omgt_sa_get_scvlr_table_records@Base 10.8.0.0
  omgt_sa_get_scvlt_table_records@Base 10.6.1.0
  omgt_sa_get_service_records@Base 10.6.1.0
  omgt_sa_get_slsc_table_records@Base 10.6.1.0

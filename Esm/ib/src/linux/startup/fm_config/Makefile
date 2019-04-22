@@ -1,6 +1,6 @@
 # BEGIN_ICS_COPYRIGHT8 ****************************************
 # 
-# Copyright (c) 2015-2017, Intel Corporation
+# Copyright (c) 2015-2018, Intel Corporation
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -81,7 +81,7 @@ LIB_TARGETS_MISC	=
 # targets to build during CMDS phase
 CMD_TARGETS_SHLIB	= 
 CMD_TARGETS_EXE		= $(EXECUTABLE)
-CMD_TARGETS_MISC	= config_diff config_generate \
+CMD_TARGETS_MISC	= config_diff config_generate opafmconfigpp \
 				  $(BUILDDIR)/config_check $(BUILDDIR)/config_convert
 # files to remove during clean phase
 CLEAN_TARGETS_MISC	=  
@@ -102,14 +102,14 @@ INCLUDE_SUBDIR		=
 #DEPENDLOCAL	= user defined makedepend flags [Empty]
 #LINTLOCAL	= User defined lint flags [Empty]
 #LOCAL_INCLUDE_DIRS	= User include directories to search for C/C++ headers [Empty]
-#LDLOCAL	= User defined C flags for linking [Empty]
+#DLOCAL	= User defined C flags for linking [Empty]
 #IMPLIBLOCAL	= User flags for Object Lirary Manager [Empty]
 #MIDLLOCAL	= User flags for IDL compiler [Empty]
 #RSCLOCAL	= User flags for resource compiler [Empty]
 #LOCALDEPLIBS	= User libraries to include in dependencies [Empty]
 #LOCALLIBS		= User libraries to use when linking [Empty]
 #				(in addition to LOCALDEPLIBS)
-#LOCAL_LIB_DIRS	= User library directories for libpaths [Empty]
+LOCAL_LIB_DIRS = /usr/lib64
 
 CLOCAL	=  $(CPIE)
 LOCALDEPLIBS = cs ibaccess config public vslogu Xml
@@ -160,7 +160,7 @@ $(BUILDDIR)/config_convert: $(BUILDDIR)/config_convert.o
 STAGE::
 	$(VS)$(STAGE_INSTALL) $(STAGE_INSTALL_DIR_OPT) $(PROJ_STAGE_DIR)/etc \
 		$(BUILDDIR)/config_check config_generate $(BUILDDIR)/config_convert \
-		config_diff
+		config_diff opafmconfigpp
 #	$(VS)$(STAGE_INSTALL) $(STAGE_INSTALL_DIR_OPT) $(PROJ_STAGE_IMAGE_DIR)/etc \
 #		config_diff config_generate \
 #		$(BUILDDIR)/config_check $(BUILDDIR)/config_convert

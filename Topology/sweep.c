@@ -386,7 +386,7 @@ FSTATUS FindTraceRoute(struct omgt_port *port,
 		NumTraceRecords = ((STL_TRACE_RECORD_RESULTS*)pQueryResults->QueryResult)->NumTraceRecords;
 		pTraceRecords = ((STL_TRACE_RECORD_RESULTS*)pQueryResults->QueryResult)->TraceRecords;
 	} else {
-		status = GenTraceRoutePath(fabricp, pathp, &pTraceRecords, &NumTraceRecords);
+		status = GenTraceRoutePath(fabricp, pathp, 0, &pTraceRecords, &NumTraceRecords);
 		if (FSUCCESS != status) {
 			if (status == FUNAVAILABLE) {
 				fprintf(stderr, "%s: Routing Tables not available\n",
@@ -851,6 +851,7 @@ FSTATUS ParseFocusPoint(EUI64 portGuid,
 				fprintf(stderr, "%s: Unable to open fabric interface.\n",
 						g_Top_cmdname);
 			} else {
+				omgt_set_timeout(omgt_port_session, fabricp->ms_timeout);
 				fstatus = ParseRoutePoint(omgt_port_session, portGuid, fabricp, 
 										  param, pPoint, pp);
 				omgt_close_port(omgt_port_session);
@@ -1171,6 +1172,7 @@ FSTATUS GetAllBCTs(EUI64 portGuid, FabricData_t *fabricp, Point *focus, int quie
 		fprintf(stderr, "%s: Unable to open fabric interface.\n",
 				g_Top_cmdname);
 	} else {
+		omgt_set_timeout(omgt_port_session, fabricp->ms_timeout);
 		if (fabricp->flags & FF_SMADIRECT) {
 			fstatus = GetAllBCTDirect(omgt_port_session, fabricp, focus, quiet);
 		} else {
@@ -1561,7 +1563,7 @@ static FSTATUS GetIouIocs(struct omgt_port *port, FabricData_t *fabricp, IouData
 			MemoryDeallocate(iocp);
 			continue;
 		}
-		if (cl_qmap_insert(&fabricp->AllIOCs, iocp->IocProfile.IocGUID, &iocp->AllIOCsEntry) != &iocp->AllIOCsEntry)
+		if (cl_qmap_insert(&fabricp->AllIOCs, (uint64_t)iocp, &iocp->AllIOCsEntry) != &iocp->AllIOCsEntry)
 		{
 			fprintf(stderr, "%s: Duplicate IOC Guids found in IocProfiles: 0x%016"PRIx64", skipping\n",
 						   	g_Top_cmdname, iocp->IocProfile.IocGUID);
@@ -1631,14 +1633,20 @@ static FSTATUS GetPortCableInfoDirect(struct omgt_port *port,
 									  int quiet)
 {
 	FSTATUS status = FSUCCESS;
-	uint8_t cableInfo[STL_CIB_STD_LEN];
-	uint16_t addr;
+	uint8_t cableInfo[STL_CABLE_INFO_DATA_SIZE * 4];		// 2 blocks of lower page 0 and 2 blocks of upper page 0 
+	uint16_t addr, startAddr;
 	uint8_t *data;
 
 	if (! IsCableInfoAvailable(&portp->PortInfo))
 		return FSUCCESS;
 
-	for (addr = STL_CIB_STD_HIGH_PAGE_ADDR, data=cableInfo;
+	//Data in Low address space of Cable info is also accesed for Cable Health Report
+	if(fabricp->flags & FF_CABLELOWPAGE)
+		startAddr = STL_CIB_STD_LOW_PAGE_ADDR;
+	else
+		startAddr = STL_CIB_STD_HIGH_PAGE_ADDR;
+
+	for (addr = startAddr, data=cableInfo;
 		 addr + STL_CABLE_INFO_MAXLEN <= STL_CIB_STD_END_ADDR; addr += STL_CABLE_INFO_DATA_SIZE, data += STL_CABLE_INFO_DATA_SIZE)
 	{
 		status = SmaGetCableInfo(port, portp->EndPortLID, 0, NULL, portp->PortNum, addr, STL_CABLE_INFO_MAXLEN, data);
@@ -1650,14 +1658,21 @@ static FSTATUS GetPortCableInfoDirect(struct omgt_port *port,
 			break;
 		}
 	}
+
 	if (status != FSUCCESS)
 		return status;
+
 	if (! portp->pCableInfoData) {
 		if ((status = PortDataAllocateCableInfoData(fabricp, portp)) != FSUCCESS)
 			return status;
 	}
 
-	memcpy(portp->pCableInfoData, cableInfo, sizeof(cableInfo));
+	//Data in Low address space of Cable info is also copied for Cable Health Report
+	if(fabricp->flags & FF_CABLELOWPAGE)
+		memcpy(portp->pCableInfoData, cableInfo, sizeof(cableInfo));
+	else
+		memcpy(portp->pCableInfoData, cableInfo, STL_CIB_STD_LEN);
+
 	return FSUCCESS;
 }
 
@@ -1726,7 +1741,7 @@ static FSTATUS GetAllCablesSA(struct omgt_port *port,
 	status = omgt_query_sa(port, &query, &pQueryResults);
 
 	if (!pQueryResults) {
-		fprintf(stderr, "%*sSA CableInfo Record query Faile: %s\n", 0, "", iba_fstatus_msg(status));
+		fprintf(stderr, "%*sSA CableInfo Record query Failed: %s\n", 0, "", iba_fstatus_msg(status));
 		goto fail;
 	} else if (pQueryResults->Status != FSUCCESS) {
 		fprintf(stderr, "%*sSA CableInfo Record query Failed: %s MadStatus 0x%x: %s\n", 0, "",
@@ -2024,6 +2039,7 @@ FSTATUS GetAllMCGroups(EUI64 portGuid, FabricData_t *fabricp, Point *focus, int 
 	if (fstatus != FSUCCESS)
 		fprintf(stderr, "%s: Unable to open fabric interface.\n", g_Top_cmdname);
 	else  {
+		omgt_set_timeout(omgt_port_session, fabricp->ms_timeout);
 		fstatus = GetMCGroups(omgt_port_session, portGuid, fabricp, quiet, g_verbose_file);
 		omgt_close_port(omgt_port_session);
 	}
@@ -2610,7 +2626,7 @@ FSTATUS GetAllPortCounters(EUI64 portGuid, IB_GID localGid, FabricData_t *fabric
 	if (status != FSUCCESS) {
 		return status;
 	}
-
+	omgt_set_timeout(g_portHandle, fabricp->ms_timeout);
 #ifdef PRODUCT_OPENIB_FF
 	if ((g_paclient_state == OMGT_SERVICE_STATE_UNKNOWN) && !(fabricp->flags & FF_PMADIRECT)){
 		g_paclient_state = omgt_pa_service_connect(g_portHandle);
@@ -3848,6 +3864,7 @@ FSTATUS GetAllPortVLInfo(EUI64 portGuid, FabricData_t *fabricp, Point *focus, in
 		fprintf(stderr, "%s: Unable to open fabric interface.\n",
 				g_Top_cmdname);
 	} else {
+		omgt_set_timeout(omgt_port_session, fabricp->ms_timeout);
 		if (fabricp->flags & FF_SMADIRECT) {
 			fstatus = GetAllPortVLInfoDirect(omgt_port_session, fabricp, focus, quiet, use_scsc);
 		} else {
@@ -3940,7 +3957,7 @@ static FSTATUS GetAllFDBsSA(struct omgt_port *port, FabricData_t *fabricp, Point
 
 		if (ix_node%PROGRESS_FREQ == 0)
 			if (! quiet) ProgressPrint(FALSE, "Processed %6d of %6d Nodes...", ix_node, num_nodes);
-		if (focus && ! CompareNodePoint(nodep, focus))
+		if(focus && ! CompareNodePoint(nodep, focus))
 			continue;
 
 		// Process switch nodes
@@ -4253,7 +4270,7 @@ static FSTATUS GetAllFDBsDirect(struct omgt_port *port, FabricData_t *fabricp, P
 
 		if (ix_node%PROGRESS_FREQ == 0)
 			if (! quiet) ProgressPrint(FALSE, "Processed %6d of %6d Nodes...", ix_node, num_nodes);
-		if (focus && ! CompareNodePoint(nodep, focus))
+		if(focus && ! CompareNodePoint(nodep, focus))
 			continue;
 
 		// Process switch nodes
@@ -4374,6 +4391,7 @@ FSTATUS GetAllFDBs(EUI64 portGuid, FabricData_t *fabricp, Point *focus, int quie
 		fprintf(stderr, "%s: Unable to open fabric interface.\n",
 				g_Top_cmdname);
 	} else {
+		omgt_set_timeout(omgt_port_session, fabricp->ms_timeout);
 		if (fabricp->flags & FF_SMADIRECT) {
 			fstatus = GetAllFDBsDirect(omgt_port_session, fabricp, focus, quiet);
 		} else {
@@ -4408,7 +4426,7 @@ FSTATUS ClearAllPortCounters(EUI64 portGuid, IB_GID localGid, FabricData_t *fabr
 	if (status != FSUCCESS) {
 		return status;
 	}
-
+	omgt_set_timeout(g_portHandle, fabricp->ms_timeout);
 #ifdef PRODUCT_OPENIB_FF
 	if ((g_paclient_state == OMGT_SERVICE_STATE_UNKNOWN) && !(fabricp->flags & FF_PMADIRECT)) {
 		g_paclient_state = omgt_pa_service_connect(g_portHandle);
@@ -4557,7 +4575,7 @@ FSTATUS InitSweepVerbose(FILE *verbose_file)
 }
 
 // only FF_LIDARRAY fflag is used, others ignored
-FSTATUS Sweep(EUI64 portGuid, FabricData_t *fabricp, FabricFlags_t fflags,  SweepFlags_t flags, int quiet)
+FSTATUS Sweep(EUI64 portGuid, FabricData_t *fabricp, FabricFlags_t fflags,  SweepFlags_t flags, int quiet, int ms_timeout)
 {
 	FSTATUS fstatus;
 	struct omgt_port *omgt_port_session = NULL;
@@ -4567,14 +4585,14 @@ FSTATUS Sweep(EUI64 portGuid, FabricData_t *fabricp, FabricFlags_t fflags,  Swee
 					   	g_Top_cmdname);
 		return FERROR;
 	}
-
+	fabricp->ms_timeout = ms_timeout;
 	fstatus = omgt_open_port_by_guid(&omgt_port_session, portGuid, NULL);
 	if (fstatus != FSUCCESS) {
 		fprintf(stderr, "%s: Unable to open fabric interface.\n",
 					   	g_Top_cmdname);
 		return fstatus;
 	}
-
+	omgt_set_timeout(omgt_port_session, fabricp->ms_timeout);
 	time(&fabricp->time);
 #ifdef IB_STACK_OPENIB
 //	omgt_mad_refresh_pkey_glob();

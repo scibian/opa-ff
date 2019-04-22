@@ -1,6 +1,6 @@
 /* BEGIN_ICS_COPYRIGHT7 ****************************************
 
-Copyright (c) 2015-2017, Intel Corporation
+Copyright (c) 2015-2018, Intel Corporation
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -62,6 +62,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define MODULUS_LEN 256
 #define MODULUS_OFFSET 128
+#define MAX_PATH_RECS 1
 
 extern int g_verbose;
 
@@ -70,18 +71,31 @@ FSTATUS getDestPath(struct omgt_port *port, EUI64 destPortGuid, char *cmd, IB_PA
 {
 	FSTATUS					fstatus;
 	EUI64					portGuid		= -1;
-	EUI64					portPrefix		= -1;
+	uint64_t				portPrefix		= -1;
 	OMGT_QUERY				query;
 	PQUERY_RESULT_VALUES	pq				= NULL;
+	uint8_t					sm_sl			= -1;
 
 	(void)omgt_port_get_port_guid(port, &portGuid);
 	(void)omgt_port_get_port_prefix(port, &portPrefix);
+	(void)omgt_port_get_port_sm_sl(port, &sm_sl);
 
 	memset(&query, 0, sizeof(query));		// initialize reserved fields
-	query.InputType = InputTypePortGuidPair;
-	query.InputValue.IbPathRecord.PortGuidPair.SourcePortGuid = portGuid;
-	query.InputValue.IbPathRecord.PortGuidPair.DestPortGuid = destPortGuid;
-	query.InputValue.IbPathRecord.PortGuidPair.SharedSubnetPrefix = portPrefix;
+	query.InputType = InputTypePathRecord;
+	query.InputValue.IbPathRecord.PathRecord.ComponentMask =  IB_PATH_RECORD_COMP_SGID |
+		IB_PATH_RECORD_COMP_DGID |
+		IB_PATH_RECORD_COMP_PKEY |
+		IB_PATH_RECORD_COMP_NUMBPATH |
+		IB_PATH_RECORD_COMP_REVERSIBLE |
+		IB_PATH_RECORD_COMP_SL;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.SGID.Type.Global.SubnetPrefix = portPrefix;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.SGID.Type.Global.InterfaceID = portGuid;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.DGID.Type.Global.SubnetPrefix = portPrefix;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.DGID.Type.Global.InterfaceID = destPortGuid;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.P_Key = 0x7fff;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.NumbPath = MAX_PATH_RECS;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.Reversible = 1;
+	query.InputValue.IbPathRecord.PathRecord.PathRecord.u2.s.SL = sm_sl;
 	query.OutputType = OutputTypePathRecord;
 
 	DBGPRINT("Query: Input=%s, Output=%s\n",
@@ -316,7 +330,7 @@ FSTATUS getVPDInfo(struct omgt_port *port,
 {
 
 	FSTATUS			status = FSUCCESS;
-	uint8			*vpdBuffer;
+	uint8			*vpdBuffer = NULL;
 	uint8			devHdrBuf[DEVICE_HDR_SIZE];
 	uint8			*v;
 	uint8			*dp;
@@ -344,12 +358,13 @@ FSTATUS getVPDInfo(struct omgt_port *port,
 		vpdBufSize = (devHdrBuf[5]<<8) + devHdrBuf[4];
 		if ((vpdBuffer = malloc(vpdBufSize)) == NULL) {
 			fprintf(stderr, "getVpdInfo: Error allocating vpd buffer\n");
-			return(FERROR);
+			status = FERROR;
+			goto bail;
 		}
 		v = vpdBuffer;
 	} else {
 		fprintf(stderr, "getVpdInfo: Error sending MAD packet to switch\n");
-			return(FERROR);
+		goto bail;
 	}
 
 	while ((status == FSUCCESS) && (vpdBytesRead < vpdBufSize)) {
@@ -364,7 +379,7 @@ FSTATUS getVPDInfo(struct omgt_port *port,
 			vpdOffset += vpdReadSize;
 		} else {
 			fprintf(stderr, "getVpdInfo: Error sending MAD packet to switch\n");
-			return(FERROR);
+			goto bail;
 		}
 	}
 
@@ -384,7 +399,8 @@ FSTATUS getVPDInfo(struct omgt_port *port,
 		if (loopCount == LOOPLIMIT)
 		{
 			fprintf(stderr, "getVpdInfo: Error parsing VPD info\n");
-			return(FERROR);
+			status = FERROR;
+			goto bail;
 		}
 		// Advance to FRU GUID
 		dp += (RECORD_HDR_SIZE + FRU_TYPE_SIZE + FRU_HANDLE_SIZE);
@@ -515,6 +531,8 @@ FSTATUS getVPDInfo(struct omgt_port *port,
 		}
 	}
 
+bail:
+	if (vpdBuffer) free(vpdBuffer);
 	return(status);
 }
 
@@ -803,7 +821,7 @@ FSTATUS getOemHash(struct omgt_port *port,
 		return status;
 	*acb = ntoh32 (*(uint32 *)memoryData);
 	for(location = OEM_HASH_SIGNER_START_ADDRESS; location <= OEM_HASH_SIGNER_END_ADDRESS; location++){
-		status = sendMemAccessGetMad(port, path, mad, sessionID, location, (uint8)sizeof(memoryData), memoryData);
+		status = sendMemAccessGetMad(port, path, mad, sessionID, location, (uint8)4, memoryData);
 		if (status == FSUCCESS) {
 			oemHash[i] = ntoh32 (*(uint32 *)memoryData);
 			i++;
@@ -906,6 +924,7 @@ FSTATUS  getBinaryHash(char *fwFileName,uint32 *binaryHash)
 		return FERROR;
 	}
 	else if (fseek(fp, MODULUS_OFFSET, 0)) {
+		fclose(fp);
 		return FERROR;
 	}
 	else if ((nread = fread(buf,1,MODULUS_LEN,fp)) == MODULUS_LEN) {
@@ -917,8 +936,9 @@ FSTATUS  getBinaryHash(char *fwFileName,uint32 *binaryHash)
 
 		return FSUCCESS;
 	}
-	else
-		return FERROR;
+
+	fclose(fp);
+	return FERROR;
 }
 /* opaswEepromRW: Reads from or Writes to the switch EEPROM
    based on prrEepromRW in prrFwUpdate.c */

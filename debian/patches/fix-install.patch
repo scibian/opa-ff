@@ -1,0 +1,18 @@
+Description: Correct behavior of ff_install.sh
+ Some of the installed scripts shbang /bin/sh, but have bashisms.
+ Quick fix is to shbang /bin/bash
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2019-02-06>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/OpenIb_Host/ff_install.sh
++++ b/OpenIb_Host/ff_install.sh
+@@ -32,6 +32,7 @@
+ mkdir -p ${DESTDIR}/usr/share/man/man1
+ mkdir -p ${DESTDIR}/usr/share/man/man8
+ mkdir -p ${DESTDIR}/usr/src/opa/{mpi_apps,shmem_apps}
++mkdir -p ${DESTDIR}/${LIBDIR}
+ 
+ #Binaries and scripts installing (basic tools)
+ #cd builtbin.OPENIB_FF.release

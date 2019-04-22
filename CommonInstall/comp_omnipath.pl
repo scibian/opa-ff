@@ -59,8 +59,10 @@ sub install_generic_mpi
     # make sure any old potentially custom built versions of mpi are uninstalled
     my @list = ( "$mpifullname", "mpitests_$mpifullname" );
     rpm_uninstall_list2("any", "--nodeps", 'silent', @list);
+	# cleanup from older installs just in case
+    system ("rm -rf /usr/lib/opa/.comp_$mpifullname.pl");
     
-    my $rpmfile = rpm_resolve("$srcdir", "any", "$mpifullname");
+    my $rpmfile = rpm_resolve("$srcdir/$mpifullname", "any");
     if ( "$rpmfile" ne "" && -e "$rpmfile" ) {
 	my $mpich_prefix= "/usr/mpi/$compiler/$mpiname-"
 	    . rpm_query_attr($rpmfile, "VERSION");
@@ -75,15 +77,13 @@ sub install_generic_mpi
 	}
     }
     # enable this code if mpitests is missing for some compilers or MPIs
-    #my $mpitests_rpmfile = rpm_resolve("$srcdir/OtherMPIs", "any", "mpitests_$mpifullname");
+    #my $mpitests_rpmfile = rpm_resolve("$srcdir/OtherMPIs/mpitests_$mpifullname", "any");
     #if ( "$mpitests_rpmfile" ne "" && -e "$mpitests_rpmfile" ) {
         rpm_install_list_with_options ("$srcdir", "user", " -U --nodeps ", @list);
     #} else {
-    #    rpm_install("$srcdir/OtherMPIs", "user", "$mpifullname");
+    #    rpm_install("$srcdir/OtherMPIs/$mpifullname", "user");
     #}
-    check_dir ("/opt/iba");
-    copy_systool_file ("$srcdir/comp.pl", "/usr/lib/opa/.comp_$mpifullname.pl");
-    
+
     $ComponentWasInstalled{$mpifullname} = 1;
 }
 
@@ -97,8 +97,7 @@ sub installed_generic_mpi
         $mpifullname = "$mpifullname" . "_" . "$suffix";
     }
 
-    return ( -e "$ROOT/usr/lib/opa/.comp_$mpifullname.pl"
-			|| rpm_is_installed ($mpifullname, "user") );
+    return (rpm_is_installed ($mpifullname, "user") );
 }
 
 sub uninstall_generic_mpi
@@ -121,12 +120,7 @@ sub uninstall_generic_mpi
     my $top;
     
     NormalPrint ("Uninstalling $ComponentInfo{$mpifullname}{'Name'}...\n");
-    if (lc($CUR_DISTRO_VENDOR) eq "redhat" &&
-	($CUR_VENDOR_VER eq "ES6" || $CUR_VENDOR_VER eq "ES6.1")) {
-		$top = rpm_query_attr_pkg("$mpifullname", "INSTPREFIXES");
-    } else {
-		$top = rpm_query_attr_pkg("$mpifullname", "INSTALLPREFIX");
-    }
+	$top = rpm_query_attr_pkg("$mpifullname", "INSTALLPREFIX");
     if ($top eq "" || $top =~ /is not installed/) {
 		$top = undef;
     } else {
@@ -141,8 +135,8 @@ sub uninstall_generic_mpi
 	# unfortunately mpi and mpitests can leave empty directories on uninstall
 	# this can confuse IFS MPI tools because correct MPI to use
 	# cannot be identified.  This remove such empty directories
-	if ( -d "$ROOT/$mpich_prefix" ) {
-		system("cd '$ROOT/$mpich_prefix'; rmdir -p tests/* >/dev/null 2>&1");
+	if ( -d "/$mpich_prefix" ) {
+		system("cd '/$mpich_prefix'; rmdir -p tests/* >/dev/null 2>&1");
 	}
     if ( -d $top ) {
 		my @files = glob("$top/*");
@@ -152,8 +146,9 @@ sub uninstall_generic_mpi
 		}
     }
     
-    system ("rm -rf $ROOT/usr/lib/opa/.comp_$mpifullname.pl");
-    system ("rmdir $ROOT/usr/lib/opa 2>/dev/null"); # remove only if empty
+	# cleanup from older installs just in case
+    system ("rm -rf /usr/lib/opa/.comp_$mpifullname.pl");
+    system ("rmdir /usr/lib/opa 2>/dev/null"); # remove only if empty
     $ComponentWasInstalled{$mpifullname} = 0;
 }
 
@@ -167,7 +162,7 @@ sub uninstall_generic_mpi
 sub available_openmpi_gcc
 {
     my $srcdir = $ComponentInfo{'openmpi_gcc'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "openmpi_gcc");
+    return rpm_exists ("$srcdir/openmpi_gcc", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -192,7 +187,7 @@ sub installed_version_openmpi_gcc
 sub media_version_openmpi_gcc
 {
     my $srcdir = $ComponentInfo{'openmpi_gcc'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "openmpi_gcc");
+    my $rpm = rpm_resolve ("$srcdir/openmpi_gcc", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -275,7 +270,7 @@ sub uninstall_openmpi_gcc
 sub available_mvapich2_gcc
 {
     my $srcdir = $ComponentInfo{'mvapich2_gcc'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "mvapich2_gcc");
+    return rpm_exists ("$srcdir/mvapich2_gcc", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -300,7 +295,7 @@ sub installed_version_mvapich2_gcc
 sub media_version_mvapich2_gcc
 {
     my $srcdir = $ComponentInfo{'mvapich2_gcc'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "mvapich2_gcc");
+    my $rpm = rpm_resolve ("$srcdir/mvapich2_gcc", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -383,7 +378,7 @@ sub uninstall_mvapich2_gcc
 sub available_openmpi_gcc_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_gcc_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "openmpi_gcc_hfi");
+    return rpm_exists ("$srcdir/openmpi_gcc_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -408,7 +403,7 @@ sub installed_version_openmpi_gcc_hfi
 sub media_version_openmpi_gcc_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_gcc_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "openmpi_gcc_hfi");
+    my $rpm = rpm_resolve ("$srcdir/openmpi_gcc_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -491,7 +486,7 @@ sub uninstall_openmpi_gcc_hfi
 sub available_openmpi_intel_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_intel_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "openmpi_intel_hfi");
+    return rpm_exists ("$srcdir/openmpi_intel_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -516,7 +511,7 @@ sub installed_version_openmpi_intel_hfi
 sub media_version_openmpi_intel_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_intel_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "openmpi_intel_hfi");
+    my $rpm = rpm_resolve ("$srcdir/openmpi_intel_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -599,7 +594,7 @@ sub uninstall_openmpi_intel_hfi
 sub available_openmpi_pgi_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_pgi_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "openmpi_pgi_hfi");
+    return rpm_exists ("$srcdir/openmpi_pgi_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -624,7 +619,7 @@ sub installed_version_openmpi_pgi_hfi
 sub media_version_openmpi_pgi_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_pgi_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "openmpi_pgi_hfi");
+    my $rpm = rpm_resolve ("$srcdir/openmpi_pgi_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -707,7 +702,7 @@ sub uninstall_openmpi_pgi_hfi
 sub available_mvapich2_gcc_hfi
 {
     my $srcdir = $ComponentInfo{'mvapich2_gcc_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "mvapich2_gcc_hfi");
+    return rpm_exists ("$srcdir/mvapich2_gcc_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -732,7 +727,7 @@ sub installed_version_mvapich2_gcc_hfi
 sub media_version_mvapich2_gcc_hfi
 {
     my $srcdir = $ComponentInfo{'mvapich2_gcc_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "mvapich2_gcc_hfi");
+    my $rpm = rpm_resolve ("$srcdir/mvapich2_gcc_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -815,7 +810,7 @@ sub uninstall_mvapich2_gcc_hfi
 sub available_mvapich2_intel_hfi
 {
     my $srcdir = $ComponentInfo{'mvapich2_intel_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "mvapich2_intel_hfi");
+    return rpm_exists ("$srcdir/mvapich2_intel_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -840,7 +835,7 @@ sub installed_version_mvapich2_intel_hfi
 sub media_version_mvapich2_intel_hfi
 {
     my $srcdir = $ComponentInfo{'mvapich2_intel_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "mvapich2_intel_hfi");
+    my $rpm = rpm_resolve ("$srcdir/mvapich2_intel_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -924,7 +919,7 @@ sub uninstall_mvapich2_intel_hfi
 sub available_mvapich2_pgi_hfi
 {
     my $srcdir = $ComponentInfo{'mvapich2_pgi_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "mvapich2_pgi_hfi");
+    return rpm_exists ("$srcdir/mvapich2_pgi_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -949,7 +944,7 @@ sub installed_version_mvapich2_pgi_hfi
 sub media_version_mvapich2_pgi_hfi
 {
     my $srcdir = $ComponentInfo{'mvapich2_pgi_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "mvapich2_pgi_hfi");
+    my $rpm = rpm_resolve ("$srcdir/mvapich2_pgi_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -1036,7 +1031,7 @@ sub uninstall_mvapich2_pgi_hfi
 sub available_openmpi_gcc_cuda_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_gcc_cuda_hfi'}{'SrcDir'};
-    return rpm_exists ("$srcdir", "user", "openmpi_gcc_cuda_hfi");
+    return rpm_exists ("$srcdir/openmpi_gcc_cuda_hfi", "user");
 }
 
 # is component X presently installed on the system.  This is
@@ -1061,7 +1056,7 @@ sub installed_version_openmpi_gcc_cuda_hfi
 sub media_version_openmpi_gcc_cuda_hfi
 {
     my $srcdir = $ComponentInfo{'openmpi_gcc_cuda_hfi'}{'SrcDir'};
-    my $rpm = rpm_resolve ("$srcdir", "user", "openmpi_gcc_cuda_hfi");
+    my $rpm = rpm_resolve ("$srcdir/openmpi_gcc_cuda_hfi", "user");
     return rpm_query_version_release ($rpm);
 }
 
@@ -1141,23 +1136,29 @@ sub uninstall_openmpi_gcc_cuda_hfi
 sub available_mpisrc()
 {
 	my $srcdir=$ComponentInfo{'mpisrc'}{'SrcDir'};
-	return (file_glob("$srcdir/mpitests-*.src.rpm") ne ""
-			&& file_glob("$srcdir/mvapich2-*.src.rpm") ne ""
-			&& file_glob("$srcdir/openmpi-*.src.rpm") ne "");
+	return has_mpisrc($srcdir);
 	#return ( (-d "$srcdir/SRPMS" || -d "$srcdir/RPMS" ) );
 }
 
 sub installed_mpisrc()
 {
-	return (file_glob("$ROOT/usr/src/opa/MPI/mvapich*.src.rpm") ne ""
-			&& file_glob("$ROOT/usr/src/opa/MPI/openmpi*.src.rpm") ne ""
-			&& file_glob("$ROOT/usr/src/opa/MPI/mpitests*.src.rpm") ne "");
+	my $srcdir = "/usr/src/opa/MPI";
+	my $old_srcdir = "/usr/lib/opa/src/MPI";
+	return (has_mpisrc($srcdir) || has_mpisrc($old_srcdir));
+}
+
+sub has_mpisrc($)
+{
+	my $srcdir = shift();
+	return (file_glob("$srcdir/mvapich*.src.rpm") ne ""
+	        && file_glob("$srcdir/openmpi*.src.rpm") ne ""
+	        && file_glob("$srcdir/mpitests*.src.rpm") ne "");
 }
 
 # only called if installed_mpisrc is true
 sub installed_version_mpisrc()
 {
-	return `cat $ROOT/usr/src/opa/MPI/.version`;
+	return `cat /usr/src/opa/MPI/.version`;
 }
 
 # only called if available_mpisrc is true
@@ -1212,14 +1213,14 @@ sub install_mpisrc($$)
 	check_dir("/usr/src/opa");
 	check_dir("/usr/src/opa/MPI");
 	# remove old versions (.src.rpm and built .rpm files too)
-	system "rm -rf $ROOT/usr/src/opa/MPI/mvapich[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/mvapich2[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/openmpi[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/mpitests[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/make.*.res 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/make.*.err 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/make.*.warn 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/.mpiinfo 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/mvapich[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/mvapich2[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/openmpi[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/mpitests[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/make.*.res 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/make.*.err 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/make.*.warn 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/.mpiinfo 2>/dev/null";
 
 	# install new versions
 	foreach my $srpm ( "mvapich2", "openmpi", "mpitests" ) {
@@ -1251,20 +1252,20 @@ sub uninstall_mpisrc($$)
     NormalPrint ("Uninstalling $ComponentInfo{'mpisrc'}{'Name'}...\n");
 
 	# remove old versions (.src.rpm and built .rpm files too)
-	system "rm -rf $ROOT/usr/src/opa/MPI/.version 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/mvapich2[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/openmpi[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/mpitests[-_]*.rpm 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/make.*.res 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/make.*.err 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/make.*.warn 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/.mpiinfo 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/do_build 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/do_mvapich2_build 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/do_openmpi_build 2>/dev/null";
-	system "rm -rf $ROOT/usr/src/opa/MPI/.mpiinfo 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/.version 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/mvapich2[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/openmpi[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/mpitests[-_]*.rpm 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/make.*.res 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/make.*.err 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/make.*.warn 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/.mpiinfo 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/do_build 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/do_mvapich2_build 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/do_openmpi_build 2>/dev/null";
+	system "rm -rf /usr/src/opa/MPI/.mpiinfo 2>/dev/null";
 
-	system "rmdir $ROOT/usr/src/opa/MPI 2>/dev/null"; # remove only if empty
-	system "rmdir $ROOT/usr/src/opa 2>/dev/null"; # remove only if empty
+	system "rmdir /usr/src/opa/MPI 2>/dev/null"; # remove only if empty
+	system "rmdir /usr/src/opa 2>/dev/null"; # remove only if empty
 	$ComponentWasInstalled{'mpisrc'}=0;
 }

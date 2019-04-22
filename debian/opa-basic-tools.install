@@ -1,9 +1,8 @@
 etc/opa/opamgt_tls.xml
 etc/profile.d/*
-usr/lib/opa/.comp_fastfabric.pl
-usr/lib/opa/.comp_oftools.pl
 usr/lib/opa/tools/opaipcalc
 usr/lib/opa/tools/setup_self_ssh
+usr/lib/opa/tools/stream
 usr/lib/opa/tools/usemem
 usr/sbin/opacapture
 usr/sbin/opafabricinfo
@@ -19,7 +18,6 @@ usr/sbin/oparesolvehfiport
 usr/sbin/opasaquery
 usr/sbin/opasmaquery
 usr/share/man/man1/opacapture.1
-usr/share/man/man1/opaconfig.1
 usr/share/man/man1/opafabricinfo.1
 usr/share/man/man1/opagetvf.1
 usr/share/man/man1/opagetvf_env.1

@@ -35,6 +35,7 @@ include $(TL_DIR)/$(PROJ_FILE_DIR)/Makesettings.project
 stage::
 #prepfiles:: prepfiles_global
 clobber:: clobber_global clobber_tools
+
 ALL:: tools
 
 BSP_SPECIFIC_DIRS=
@@ -121,7 +122,7 @@ CMD_TARGETS_MISC	=
 CLEAN_TARGETS_MISC	=  
 CLEAN_TARGETS		= $(OBJECTS) $(RSCOBJECTS) $(IDL_TARGETS) $(CLEAN_TARGETS_MISC)
 # other files to remove during clobber phase
-CLOBBER_TARGETS_MISC= 
+CLOBBER_TARGETS_MISC= update_opa_spec.sh ff_build.sh $(TL_DIR)/Fd/buildFeatureDefs
 # sub-directory to install to within bin
 BIN_SUBDIR		= 
 # sub-directory to install to within include
@@ -195,8 +196,8 @@ else
 	$(CONVERT_RELEASETAG) $(RELEASE_TAG) > $(PROJ_STAGE_DIR)/version
 endif
 	cd $(PROJ_STAGE_DIR) && find . -print| $(PREP)
-	cd $(PROJ_STAGE_DIR) && $(PATCH_VERSION) -m % $(RELEASE_TAG) INSTALL
-	cd $(PROJ_STAGE_DIR) && [ ! -e fastfabric/opafastfabric ] || $(PATCH_VERSION) -m % $(RELEASE_TAG) fastfabric/opahostadmin fastfabric/opachassisadmin  fastfabric/opaswitchadmin fastfabric/opafastfabric
+	cd $(PROJ_STAGE_DIR) && $(PATCH_VERSION) -m % -n `$(CONVERT_RELEASETAG) $(RELEASE_TAG)` $(RELEASE_TAG) INSTALL
+	cd $(PROJ_STAGE_DIR) && [ ! -e fastfabric/opafastfabric ] || $(PATCH_VERSION) -m % -n `$(CONVERT_RELEASETAG) $(RELEASE_TAG)` $(RELEASE_TAG) fastfabric/opahostadmin fastfabric/opachassisadmin  fastfabric/opaswitchadmin fastfabric/opafastfabric
 	cd $(PROJ_STAGE_DIR) && $(PATCH_BRAND) -m % "$(BUILD_BRAND)" INSTALL
 	cd $(PROJ_STAGE_DIR) && [ ! -e fastfabric/opafastfabric ] || $(PATCH_BRAND) -m % "$(BUILD_BRAND)" fastfabric/opafastfabric
 
@@ -215,7 +216,7 @@ final_package:
 # Unit test execution
 #include $(TL_DIR)/Makerules/Maketargets.runtest
 
-tools:
+tools:	$(TL_DIR)/Fd/buildFeatureDefs
 	mkdir -p $(COMN_LIB_DIRS) $(GLOBAL_SHLIB_DIR)
 	cd $(TL_DIR)/MakeTools && $(MAKE) $(MFLAGS)
 clobber_tools:

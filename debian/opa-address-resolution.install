@@ -1,11 +1,11 @@
 etc/rdma/dsap.conf
 usr/bin/opa_osd_dump
 usr/bin/opa_osd_exercise
+usr/bin/opa_osd_load
 usr/bin/opa_osd_perf
 usr/bin/opa_osd_query
-usr/include/infiniband/*
-usr/lib/ibacm/*
-usr/lib/libopasadb.so.*
+usr/bin/opa_osd_query_many
+usr/lib/*/ibacm/*
 usr/share/man/man1/opa_osd_dump.1
 usr/share/man/man1/opa_osd_exercise.1
 usr/share/man/man1/opa_osd_perf.1

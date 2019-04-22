@@ -38,16 +38,32 @@ USE_UNIFDEF="$3"
 ARCHIVE="$4"
 FILES_TO_TAR="$5"
 FILE_TO_EXCLUDE="$6"
+
+comp_arg=
+if echo $ARCHIVE | grep opa-fm.tar.gz > /dev/null
+then
+	comp_arg=HFM
+fi
+if echo $ARCHIVE | grep opa.tgz > /dev/null
+then
+	comp_arg=FF
+fi
+if echo $ARCHIVE | grep opa-sim.tgz > /dev/null
+then
+	comp_arg=SIM
+fi
+
 if [[ "${RELEASE_TYPE}" == "EMBARGOED" ]]
 then
         echo "Building Embargoed Release."
         export OPA_LICENSE_DIR=${TL_DIR}/CodeTemplates/EmbargoedNotices
+        export LICENSE_FUNCS=${TL_DIR}/CodeTemplates/license_funcs.sh
         # use tar command to copy files to temp dir
-        # then run update_license on files in temp dir
+        # then run update_all_licenses on files in temp dir
         TMP=$(mktemp -d)
-        tar c -C ${SrcRoot} ${FILES_TO_TAR} --exclude-vcs --ignore-case $FILE_TO_EXCLUDE | \
+        tar c -C ${SrcRoot} --exclude-vcs --ignore-case $FILE_TO_EXCLUDE ${FILES_TO_TAR} | \
         	tar x -C ${TMP}
-        ${TL_DIR}/CodeTemplates/update_license.sh -c -q $TMP
+        ${TL_DIR}/CodeTemplates/update_all_licenses.sh -c -q $TMP
         SrcRoot=${TMP}
 else
         echo "Building Public Release."
@@ -58,24 +74,29 @@ SrcTmp=$(mktemp -d)
 # Use tar command to copy files to temp dirs
 # For unifdef, then run unifdef on files in temp dir
 
-tar c -C ${SrcRoot} ${FILES_TO_TAR} --exclude-vcs --ignore-case $FILE_TO_EXCLUDE | \
+tar c -C ${SrcRoot} --exclude-vcs --ignore-case $FILE_TO_EXCLUDE ${FILES_TO_TAR} | \
    	tar x -C ${SrcTmp}
 if [[ $USE_UNIFDEF = "yes" ]] ; then
         # Check if unifdef tool exists
         type unifdef > /dev/null 2>&1 || { echo "error: unifdef tool missing"; exit 1; }
-        find ${SrcTmp}/ -type f -regex ".*\.[ch][p]*$" -exec unifdef -m -f "${TL_DIR}/buildFeatureDefs" {} \;
+        find ${SrcTmp}/ -type f -regex ".*\.[ch][p]*$" -exec unifdef -m -f "${TL_DIR}/Fd/buildFeatureDefs" {} \;
         # Delete content of buildFeatureDefs before creating source tar for rpm
-        >${SrcTmp}/buildFeatureDefs
+        mkdir -p ${SrcTmp}/Fd
+        >${SrcTmp}/Fd/buildFeatureDefs
+        >${SrcTmp}/Fd/buildFeatureDefs.base
 fi
 
-# Delete include of Rules.buildFeatureDefs
-mfiles=$(find ${SrcTmp} -name "Makefile*" | xargs grep -l Rules.buildFeatureDefs)
-for mf in $mfiles
-do
-        sed -i '/Rules.buildFeatureDefs/d' $mf
-done
+# Copy processed base files as .base 
 
-tar cvzf ${ARCHIVE} -C ${SrcTmp} ${FILES_TO_TAR} --exclude-vcs --ignore-case $FILE_TO_EXCLUDE
+while read comp fn
+do
+	if echo $comp | grep $comp_arg > /dev/null
+	then
+		cp ${TL_DIR}/$fn ${SrcTmp}/${fn}.base
+	fi
+done < ${TL_DIR}/Fd/BaseFiles
+
+tar cvzf ${ARCHIVE} -C ${SrcTmp} --exclude-vcs --ignore-case $FILE_TO_EXCLUDE ${FILES_TO_TAR}
 
 # Remove temp dir
 if [[ "${RELEASE_TYPE}" == "EMBARGOED" ]] ; then

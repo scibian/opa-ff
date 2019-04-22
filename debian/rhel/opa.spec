@@ -1,17 +1,22 @@
 Name: opa
-Version: 10.7.0.0
-Release: 133%{?dist}
+Version: 10.9.2.0
+Release: 7%{?dist}
 Summary: Intel Omni-Path basic tools and libraries for fabric managment.
 
 Group: System Environment/Libraries
 License: GPLv2/BSD
-Url: http://www.intel.com/
+Url: https://github.com/intel/opa-ff
+# tarball created by:
+# git clone https://github.com/intel/opa-ff.git
+# cd opa-ff
+# tar czf opa.tgz --exclude-vcs .
 Source: opa.tgz
 ExclusiveArch: x86_64
 # The Intel(R) OPA product line is only available on x86_64 platforms at this time.
 
 %description
 This package contains the tools necessary to manage an Intel(R) Omni-Path Architecture fabric.
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %package basic-tools
 Summary: Managment level tools and scripts.
@@ -19,55 +24,76 @@ Group: System Environment/Libraries
 
 Requires: rdma bc
 
-Requires: expect%{?_isa}, tcl%{?_isa}, openssl%{?_isa}, expat%{?_isa}, libibumad%{?_isa}, libibverbs%{?_isa}, libibmad%{?_isa}
+Requires: expect%{?_isa}, tcl%{?_isa}, openssl%{?_isa}, expat%{?_isa}, libibumad%{?_isa}, libibverbs%{?_isa}
 BuildRequires: expat-devel, gcc-c++, openssl-devel, ncurses-devel, tcl-devel, rdma-core-devel, ibacm-devel
+Epoch: 1
 
 %description basic-tools
 Contains basic tools for fabric managment necessary on all compute nodes.
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %package fastfabric
 Summary: Management level tools and scripts.
 Group: System Environment/Libraries
-Requires: opa-basic-tools
+Requires: opa-basic-tools cronie
+
+Epoch: 1
 
 %description fastfabric
 Contains tools for managing fabric on a managment node.
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %package address-resolution
 Summary: Contains Address Resolution manager
 Group: System Environment/Libraries
 Requires: opa-basic-tools ibacm
+Epoch: 1
 
 %description address-resolution
 This package contains the ibacm distributed SA provider (dsap) for name and address resolution on OPA platform.
 It also contains the library and tools to access the shared memory database exported by dsap.
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+
+#opasnapconfig
+%package snapconfig
+Summary: Configure fabric with snapshot file
+Group: System Environment/Libraries
+AutoReq: no
+Requires: opa-fastfabric
+
+%description snapconfig
+Parse information from provided snapshot file and issue packets to program
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %package libopamgt
 Summary: Omni-Path management API library
 Group: System Environment/Libraries
 Requires: libibumad%{?_isa}, libibverbs%{?_isa}, openssl%{?_isa}
+Epoch: 1
 
 %description libopamgt
 This package contains the library necessary to build applications that interface with an Omni-Path FM.
-
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %package libopamgt-devel
 Summary: Omni-Path library development headers
 Group: System Environment/Libraries
-Requires: rdma-core-devel, openssl-devel, opa-libopamgt
+Requires: rdma-core-devel, openssl-devel, opa-libopamgt,
+Epoch: 1
 
 %description libopamgt-devel
 This package contains the necessary headers for opamgt development.
+IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %prep
 #rm -rf %{_builddir}/*
 #tar xzf %_sourcedir/%name.tgz
+
 %setup -q -c
 
 %build
 cd OpenIb_Host
-./ff_build.sh %{_builddir} $BUILD_ARGS
-
+OPA_FEATURE_SET=opa10 ./ff_build.sh %{_builddir} $BUILD_ARGS
 
 %install
 BUILDDIR=%{_builddir} DESTDIR=%{buildroot} LIBDIR=/usr/lib DSAP_LIBDIR=%{_libdir} OpenIb_Host/ff_install.sh
@@ -103,10 +129,8 @@ make -k clean >/dev/null 2>&1 || :
 /usr/lib/opa/tools/setup_self_ssh
 /usr/lib/opa/tools/usemem
 /usr/lib/opa/tools/opaipcalc
-/usr/lib/opa/.comp_fastfabric.pl
-/usr/lib/opa/.comp_oftools.pl
+/usr/lib/opa/tools/stream
 %{_mandir}/man1/opacapture.1.gz
-%{_mandir}/man1/opaconfig.1.gz
 %{_mandir}/man1/opafabricinfo.1.gz
 %{_mandir}/man1/opagetvf.1.gz
 %{_mandir}/man1/opagetvf_env.1.gz
@@ -194,6 +218,7 @@ make -k clean >/dev/null 2>&1 || :
 /usr/lib/opa/tools/opagetipaddrtype
 /usr/lib/opa/tools/opafastfabric.conf.def
 /usr/lib/opa/tools/show_counts
+/usr/lib/opa/tools/opacablehealthcron
 /usr/lib/opa/tools/basic.exp
 /usr/lib/opa/tools/chassis.exp
 /usr/lib/opa/tools/chassis_configure.exp
@@ -357,7 +382,6 @@ make -k clean >/dev/null 2>&1 || :
 /usr/src/opa/mpi_apps/config_hpl2
 /usr/src/opa/mpi_apps/run_hpl2
 /usr/src/opa/mpi_apps/run_lat
-/usr/src/opa/mpi_apps/run_pmb
 /usr/src/opa/mpi_apps/run_imb
 /usr/src/opa/mpi_apps/run_lat2
 /usr/src/opa/mpi_apps/run_bw2
@@ -388,6 +412,8 @@ make -k clean >/dev/null 2>&1 || :
 /usr/src/opa/mpi_apps/deviation
 /usr/src/opa/mpi_apps/hpl-config/HPL.dat-*
 /usr/src/opa/mpi_apps/hpl-config/README
+/usr/src/opa/mpi_apps/mpicc
+/usr/src/opa/mpi_apps/mpif77
 /usr/src/opa/shmem_apps/Makefile
 /usr/src/opa/shmem_apps/mpi_hosts.sample
 /usr/src/opa/shmem_apps/prepare_run
@@ -414,6 +440,7 @@ make -k clean >/dev/null 2>&1 || :
 %config(noreplace) %{_sysconfdir}/opa/hosts
 %config(noreplace) %{_sysconfdir}/opa/ports
 %config(noreplace) %{_sysconfdir}/opa/switches
+%config(noreplace) %{_sysconfdir}/cron.d/opa-cablehealth
 %config(noreplace) /usr/lib/opa/tools/osid_wrapper
 
 
@@ -422,14 +449,21 @@ make -k clean >/dev/null 2>&1 || :
 %{_bindir}/opa_osd_exercise
 %{_bindir}/opa_osd_perf
 %{_bindir}/opa_osd_query
+%{_bindir}/opa_osd_query_many
+%{_bindir}/opa_osd_load
 %{_libdir}/ibacm
-%{_libdir}/libopasadb.so.*
+%{_libdir}/libopasadb.so*
 %{_includedir}/infiniband
 %{_mandir}/man1/opa_osd_dump.1*
 %{_mandir}/man1/opa_osd_exercise.1*
 %{_mandir}/man1/opa_osd_perf.1*
 %{_mandir}/man1/opa_osd_query.1*
 %config(noreplace) %{_sysconfdir}/rdma/dsap.conf
+%config(noreplace) %{_sysconfdir}/rdma/op_path_rec.conf
+%{_sysconfdir}/rdma/opasadb.xml
+
+%files snapconfig
+/usr/lib/opa/tools/opasnapconfig
 
 %files libopamgt
 /usr/lib/libopamgt.*
@@ -440,6 +474,9 @@ make -k clean >/dev/null 2>&1 || :
 /usr/src/opamgt
 
 %changelog
+* Mon Feb 26 2018 Jijun Wang <jijun.wang@intel.com> - 10.8.0.0
+- Added epoch for RHEL address-resolution, basic-tools and fastfabric
+- Added component information in description for all rpms
 * Thu Apr 13 2017 Scott Breyer <scott.j.breyer@intel.com> - 10.5.0.0
 - Updates for spec file cleanup
 * Fri Oct 10 2014 Erik E. Kahn <erik.kahn@intel.com> - 1.0.0-ifs
