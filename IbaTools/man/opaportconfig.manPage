@@ -1,0 +1,425 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opaportconfig 1 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
+.SH NAME
+opaportconfig
+
+.NL
+
+.PP
+
+\fB(Host or Switch)\fR
+Controls the configuration and state of a specified Intel(R) Omni-Path Host Fabric Interface (HFI) port on the local host or a remote switch.
+.PP
+
+.B NOTE:
+This tool is designed for expert users only. Non-expert users should use other tools such as opaenableports, opadisableports and opaportinfo for basic functionality.
+
+.SH Syntax
+.NL
+opaportconfig [-l \fIlid\fR[-m \fIdest\(ulport\fR]] [-h \fIhfi\fR] [-p \fIport\fR] [-r \fIsecs\fR] [-z]
+.br
+[-S \fIstate\fR] [-P \fIphysstate\fR] [-s \fIspeed\fR] [-w \fIwidth\fR] [-c \fILTPCRC\fR] [-v] [-x]
+.br
+[-L \fIlid\fR] [< \fIsub command\fR>]
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-l \fIlid\fR 
+.NL
+Specifies the destination LID. Default is local port.
+
+.TP 10
+-m \fIdest\(ulport\fR 
+.NL
+Specifies the destination port. Default is port with given LID. Used to access switch ports.
+
+.TP 10
+-h \fIhfi\fR 
+.NL
+Specifies the HFI to send through/to. Default is first HFI.
+
+.TP 10
+-p \fIport\fR 
+.NL
+Specifies the port to send through/to. Default is first port.
+
+.TP 10
+\fIsub command\fR 
+.NL
+Specifies the one of the following choices:
+
+.RS
+.TP 10
+
+.sp
+enable 
+Enables port.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+disable 
+Disables port.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+bounce 
+Bounces port.
+
+.TP 10
+.BR
+
+.PP
+
+.B NOTE:
+Bouncing remote ports may cause timeouts.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+ledon 
+Turns port LED on.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+ledoff 
+Turns port LED off.
+
+.RE
+
+.NL
+
+.SH Configuration Options
+.NL
+
+.TP 10
+-r \fIsecs\fR 
+.NL
+Repeats to keep the port down for the specified amount of seconds.
+
+.TP 10
+-S \fIstate\fR 
+.NL
+Specifies the new state. Default is 0.
+
+.RS
+.TP 10
+
+.sp
+0 
+No-op.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+1 
+Down.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+2 
+Initiate.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+3 
+Armed.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+4 
+Active.
+
+.RE
+
+.TP 10
+-P \fIphysstate\fR 
+.NL
+Specifies the new physical state. Default is 0.
+
+.TP 10
+.BR
+
+.PP
+
+.B NOTE:
+All transitions are valid.
+
+.RS
+.TP 10
+
+.sp
+0 
+No-op.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+2 
+Polling.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+3 
+Disabled.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+11 
+Phy-Test. Current physstate must be disabled.
+
+.RE
+
+.TP 10
+-s \fIspeed\fR 
+.NL
+Specifies the new link speeds enabled. Default is 0. To enable multiple speeds, use the sum of the desired speeds.
+
+.RS
+.TP 10
+
+.sp
+0 
+No-op.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+2 
+0x0002 - 25 Gb/s.
+
+.RE
+
+.TP 10
+-w \fIwidth\fR 
+.NL
+Specifies the new link widths enabled. Default is 0. To enable multiple widths, use sum of desired widths.
+
+.RS
+.TP 10
+
+.sp
+0 
+No-op.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+1 
+0x01 - 1x.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+2 
+0x02 - 2x.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+4 
+0x04 - 3x.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+8 
+0x08 - 4x.
+
+.RE
+
+.TP 10
+-c \fILTPCRC\fR 
+.NL
+Specifies the new LTP CRCs enabled. Default is 0.
+.br
+To enable multiple LTP CRCs, use sum of desired LTP CRCs.
+
+.RS
+.TP 10
+
+.sp
+0 
+No-op.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+1 
+0x1 - 14-bit LTP CRC mode.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+2 
+0x2 - 16-bit LTP CRC mode.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+4 
+0x4 - 48-bit LTP CRC mode.
+.RE
+
+.RS
+.TP 10
+
+.sp
+8 
+0x8 - 12/16 bits per lane LTP CRC mode.
+
+.RE
+
+.NL
+
+.SH -h and -p options permit a variety of selections:
+.NL
+
+.TP 10
+-h 0 
+.NL
+First active port in system (Default).
+
+.TP 10
+-h 0 -p 0 
+.NL
+First active port in system.
+
+.TP 10
+-h \fIx\fR 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h \fIx\fR \fI\fR-p 0 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h 0 -p \fIy\fR 
+.NL
+Port \fIy\fR within system (no matter which ports are active).
+
+.TP 10
+-h \fIx\fR \fI\fR-p \fIy\fR 
+.NL
+HFI \fIx\fR, port \fIy\fR.
+
+.NL
+
+.SH Debug Options
+.NL
+
+.TP 10
+-v 
+.NL
+Verbose output. Additional invocations turn on debugging, openib debugging, and libibumad debugging.
+
+.TP 10
+-z 
+.NL
+Does not get port information first; clears most port attributes.
+
+.TP 10
+-L \fIlid\fR 
+.NL
+Sets PortInfo.LID = lid.
+
+.SH Examples 
+.NL
+opaportconfig -w 1
+.br
+opaportconfig -p 1 -h 2 -w 3
+.SH Description
+.NL
+
+.PP
+Port configuration is transient in nature. If the given host is rebooted or its Intel(R) Omni-Path Fabric Stack is restarted, the port reverts to its default configuration and state. Typically, the default state is to have the port enabled with all speeds and widths supported by the given HFI port.
+.PP
+To access switch ports using this command, the -l and -m options must be given. The -l option specifies the lid of switch port 0 (the logical management port for the switch) and -m specifies the actual switch port to access.
+.PP
+
+.B NOTE:
+The /etc/init.d/opaportconfig script is provided as an example of changing port speed every time the server boots. This script can be edited, then scheduled, using chkconfig to control link settings on any set of HFI ports.
+
+.PP
+
+.B CAUTION:
+When using this command to disable or reconfigure switch ports, if the final port in the path between the Fabric Management Node and the switch is disabled or fails to come online, then opaenableports is not able to reenable it. In this case, the switch CLI and/or a switch reboot may be needed to correct the situation.

@@ -1,0 +1,61 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opafmconfigcheck 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
+.SH NAME
+opafmconfigcheck
+
+.NL
+
+.PP
+Parses and verifies the configuration file of a Fabric Manager (FM). Displays debugging and status information.
+.SH Syntax
+.NL
+opafmconfigcheck [-s] [-c \fIconfig\(ulfile\fR] [-v] [-d] [-r \fIreconfig\(ulfile\fR]
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-s 
+.NL
+Enables strict check mode; validates multicast and VF settings. This option points out inconsistencies or invalid settings in VF and multicast configurations.
+
+.TP 10
+-c \fIconfig\(ulfile\fR 
+.NL
+Specifies configuration file.
+.br
+Default is /etc/opa-fm/opafm.xml.
+
+.TP 10
+-v 
+.NL
+Displays debugging and status information.
+
+.TP 10
+-d 
+.NL
+Displays configuration checksum information.
+
+.TP 10
+-r \fIreconfig\(ulfile\fR 
+.NL
+Verifies that the \fIreconfig\(ulfile\fR is valid for dynamical reconfiguration.
+
+.SH Example 
+.NL
+opafmconfigcheck
+.br
+opafmconfigcheck -v
+.br
+opafmconfigcheck -sv

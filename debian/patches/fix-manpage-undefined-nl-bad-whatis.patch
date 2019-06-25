@@ -1,0 +1,19 @@
+Description: Correct use of unsupported NL macro in manpages
+ opa manpages are shipped with with NL macro usage instead BR.
+ This patch adds build logic to modify thqt macro in all opa manpages.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2017-06-21>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/IbaTools/man/Makefile
++++ b/IbaTools/man/Makefile
+@@ -227,6 +227,8 @@
+ # install for stage phase
+ #include $(TL_DIR)/Makerules/Maketargets.stage
+ STAGE::
++	sed 's/^\.NL\s*$$/.BR/g' -i $(MAN_PAGE_1_FILES) $(MAN_PAGE_8_FILES)
++	sed 'N;/\n/s/^\(.SH\s*NAME\s*\)\n\([^\r]*\)/\1\n\2 \\- command line utility/;P;D' -i $(MAN_PAGE_1_FILES) $(MAN_PAGE_8_FILES)
+ 	$(VS)$(STAGE_INSTALL) $(STAGE_INSTALL_DIR_OPT) $(PROJ_STAGE_MAN_DIR)/man1 $(MAN_PAGE_1_FILES)
+ 	$(VS)$(STAGE_INSTALL) $(STAGE_INSTALL_DIR_OPT) $(PROJ_STAGE_MAN_DIR)/man8 $(MAN_PAGE_8_FILES)
+ 

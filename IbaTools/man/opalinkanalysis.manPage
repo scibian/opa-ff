@@ -1,0 +1,305 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opalinkanalysis 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
+.SH NAME
+opalinkanalysis
+
+.NL
+
+.PP
+
+\fB(Switch)\fR
+Encapsulates the capabilities for link analysis. Additionally, this tool includes cable and fabric topology verification capabilities. This tool is built on top of opareport (and its analysis capabilities), and accepts the same syntax for input topology and snapshot files.
+.PP
+In addition to being able to run assorted opareport link analysis reports, and generate human-readable output, this tool additionally analyzes the results and appends a concise summary of issues found to the FF\(ulRESULT\(ulDIR/punchlist.csv file.
+.SH Syntax
+.NL
+opalinkanalysis [-U] [-t \fIportsfile\fR] [-p \fIports\fR] [-T \fItopology\(ulinput\fR]
+.br
+[-X \fIsnapshot\(ulinput\fR] [-x \fIsnapshot\(ulsuffix\fR] [-c \fIfile\fR] reports ...
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-U 
+.NL
+Omits unexpected devices and links in punchlist file from verify reports.
+
+.TP 10
+-t \fIportsfile\fR 
+.NL
+Specifies the file with list of local HFI ports used to access fabric(s) for analysis. Default is /etc/opa/ports.
+
+.TP 10
+-p \fIports\fR 
+.NL
+Specifies the list of local HFI ports used to access fabrics for analysis.
+
+.IP
+Default is first active port. The first HFI in the system is 1. The first port on an HFI is 1. Uses the format hfi:port,
+.br
+for example:
+.RS
+.TP 10
+
+.sp
+0:0 
+First active port in system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+0:y 
+Port \fIy\fR within system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+x:0 
+First active port on HFI \fIx\fR.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+x:y 
+HFI \fIx\fR, port \fIy\fR.
+
+.RE
+
+.TP 10
+-T \fItopology\(ulinput\fR 
+.NL
+Specifies the name of a topology input file to use. Any  %P markers in this filename are replaced with the hfi:port being operated on (such as 0:0 or 1:2). Default is /etc/opa/topology.%P.xml. If NONE is specified, does not use any topology\(ulinput files. See
+\fIopareport\fR
+for more information on topology\(ulinput files.
+
+.TP 10
+-X \fIsnapshot\(ulinput\fR 
+.NL
+Performs analysis using data in  \fIsnapshot\(ulinput\fR.  \fIsnapshot\(ulinput\fR must have been generated via a previous opareport -o snapshot run. If an errors report is specified, snapshot must have been generated with the opareport -s option. When this option is used, only one port may be specified to select a topology\(ulinput file (unless -T specified). When this option is used, clearerrors and clearhwerrors reports are not permitted.
+
+.TP 10
+-x \fIsnapshot\(ulsuffix\fR 
+.NL
+Creates a snapshot file per selected port. The files are created in FF\(ulRESULT\(ulDIR with names of the form: snapshotSUFFIX. \fIHFI:PORT\fR.xml.
+
+.TP 10
+-c \fIfile\fR 
+.NL
+Specifies the error thresholds configuration file. The default is /etc/opa/opamon.si.conf.
+
+.TP 10
+\fIreports\fR 
+.NL
+Supports the following reports:
+.RS
+.TP 10
+
+.sp
+errors 
+Specifies link error analysis.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+slowlinks 
+Specifies links running slower than expected.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+misconfiglinks 
+Specifies links configured to run slower than supported.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+misconnlinks 
+Specifies links connected with mismatched speed potential.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+all 
+Includes all reports above. (errors, slowlinks, misconfiglinks, and misconnlinks)
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifylinks 
+Verifies links against topology input.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifyextlinks 
+Verifies links against topology input. Limits analysis to links external to systems.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifyfilinks 
+Verifies links against topology input. Limits analysis to FI links.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifyislinks 
+Verifies links against topology input. Limits analysis to inter-switch links.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifyextislinks 
+Verifies links against topology input. Limits analysis to inter-switch links external to systems.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifyfis 
+Verifies FIs against topology input.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifysws 
+Verifies switches against topology input.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifynodes 
+Verifies FIs and switches against topology input.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifysms 
+Verifies SMs against topology input.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+verifyall 
+Verifies links, FIs, switches, and SMs against topology input.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+clearerrors 
+Clears error counters, uses PM if available.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+clearhwerrors 
+Clears hardware error counters, bypasses PM.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+clear 
+Includes clearerrors and clearhwerrors.
+
+.RE
+
+
+.PP
+A punchlist of bad links is also appended to the file: FF\(ulRESULT\(ulDIR/punchlist.csv 
+.SH Examples 
+.NL
+opalinkanalysis errors
+.br
+opalinkanalysis errors clearerrors
+.br
+opalinkanalysis -p \[aq]1:1 1:2 2:1 2:2\[aq]
+.SH Environment Variables
+.NL
+
+.PP
+The following environment variables are also used by this command:
+.TP 10
+\fBPORTS\fR 
+.NL
+List of ports, used in absence of -t and -p.
+
+.TP 10
+\fBPORTS\(ulFILE\fR 
+.NL
+File containing list of ports, used in absence of -t and -p.
+
+.TP 10
+\fBFF\(ulTOPOLOGY\(ulFILE\fR 
+.NL
+File containing \fItopology\(ulinput\fR, used in absence of -T.

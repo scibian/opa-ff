@@ -1,0 +1,916 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opasaquery 1 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
+.SH NAME
+opasaquery
+
+.NL
+
+.PP
+
+\fB(All)\fR
+Performs various queries of the subnet manager/subnet agent and provides detailed fabric information.
+.PP
+opareport and opareports from the Intel(R) Omni-Path Fabric Suite can provide a more powerful tool. In some cases, opasaquery is preferred, especially when dealing with virtual fabrics, service records, and multicast.
+.PP
+By default, opasaquery uses the first active port on the local system. However, if the node is connected to more than one fabric (for example, a subnet), the Intel(R) Omni-Path Host Fabric Interface (HFI) and port may be specified to select the fabric whose SA is to be queried.
+.SH Syntax
+.NL
+opasaquery [-v [-v] [-v]] [-I] [-h \fIhfi\fR|-b \fIaddr\fR] [-p \fIport\fR] [--timeout]
+.br
+[-x \fIgid\fR] [-E] [-T \fIssl\(ulparams\fR] [-o \fItype\fR] [-l \fIlid\fR] [-t \fItype\fR] [-s \fIguid\fR]
+.br
+[-n \fIguid\fR] [-g \fIguid\fR] [-k \fIpkey\fR] [-i \fIvfIndex\fR] [-S \fIserviceId\fR] [-L \fIsl\fR]
+.br
+[-u \fIgid\fR] [-m \fIgid\fR] [-d \fInodeDescription\fR] [-D \fIdg\(ulname\fR] [-P \[aq]\fIguid guid\fR\[aq]]
+.br
+[-G \[aq]\fIgid gid\fR\[aq]] [-H \fImask\fR]
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-v/--verbose 
+.NL
+Returns verbose output. A second invocation activates openib debugging, a third invocation activates libibumad debugging.
+
+.TP 10
+-I/--IB 
+.NL
+Issues query in legacy InfiniBand* format.
+
+.TP 10
+-h/--hfi \fIhfi\fR 
+.NL
+Specifies the HFI, numbered 1..n. Using 0 specifies that the -p \fIport\fR port is a system-wide port number. Default is 0.
+
+.TP 10
+-b/--oob \fIaddress\fR 
+.NL
+Specifies Out-of-Band address of node running the FE. Can be either hostname, IPv4, or IPv6 address. Default is "127.0.0.1".
+
+.TP 10
+-p/--port \fIport\fR 
+.NL
+Specifies the port.
+.RS
+
+.IP \(bu
+In-band: numbered 1..n. Using 0 specifies first active port. Default is 0.
+.IP \(bu
+Out-of-band: Port FE is listening on. Default is 3245.
+
+.RE
+
+
+.TP 10
+--timeout 
+.NL
+Specifies the timeout (wait time for response) in ms. Default is 1000 ms.
+
+.TP 10
+-x/--source-gid \fIsrc\(ulgid\fR 
+.NL
+Specifies the source GID of the local GID (This is required for most Path and Trace Record Queries when Out-of-Band.)
+
+.TP 10
+-E/--feEsm 
+.NL
+Specifies the ESM FE.
+
+.TP 10
+-T/--ssl-params \fIfile\fR 
+.NL
+Specifies the SSL/TLS parameters XML file. Default is /etc/opa/opamgt\(ultls.xml.
+
+.TP 10
+-o \fItype\fR 
+.NL
+Output type for query. Default is node. See
+\fIOutput Types\fR
+for details.
+
+.TP 10
+-l/--lid \fIlid\fR 
+.NL
+Query a specific LID.
+
+.TP 10
+-t/--type \fInode\(ultype\fR 
+.NL
+Queries by node type. See
+\fINode Types\fR
+for details.
+
+.TP 10
+-s/--sysguid \fIsystem\(ulimage\(ulguid\fR 
+.NL
+Queries by system image GUID.
+
+.TP 10
+-n/--nodeguid \fInode\(ulguid\fR 
+.NL
+Queries by node GUID.
+
+.TP 10
+-g/--portguid \fIport\(ulguid\fR 
+.NL
+Queries by port GUID.
+
+.TP 10
+-k/--pkey \fIpkey\fR 
+.NL
+Queries a specific PKey.
+
+.TP 10
+-i/--vfindex \fIvfIndex\fR 
+.NL
+Queries a specific vfindex.
+
+.TP 10
+-S/--serviceId \fIserviceId\fR 
+.NL
+Queries a specific service ID.
+
+.TP 10
+-L/--SL \fISL\fR 
+.NL
+Queries by service level.
+
+.TP 10
+-u/--portgid \fIport\(ulgid\fR 
+.NL
+Queries by port GID. See
+\fIGIDs\fR
+for details.
+
+.TP 10
+-m/--mcgid \fImulticast\(ulgid\fR 
+.NL
+Queries by multicast GID. See
+\fIGIDs\fR
+for details.
+
+.TP 10
+-d/--desc \fInode\(uldescription\fR 
+.NL
+Queries by node name/description.
+
+.TP 10
+-D/--dgname \fIdg\(ulname\fR 
+.NL
+Queries by device group name/description
+
+.TP 10
+-P/--guidpair \fIguid guid\fR 
+.NL
+Queries by a pair of port GUIDs.
+
+.TP 10
+-G/--gidpair \fIgid gid\fR 
+.NL
+Queries by a pair of GIDs. See
+\fIGIDs\fR
+for details.
+
+.NL
+
+.SH -h and -p options permit a variety of selections:
+.NL
+
+.TP 10
+-h 0 
+.NL
+First active port in system (Default).
+
+.TP 10
+-h 0 -p 0 
+.NL
+First active port in system.
+
+.TP 10
+-h \fIx\fR 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h \fIx\fR \fI\fR-p 0 
+.NL
+First active port on HFI \fIx\fR.
+
+.TP 10
+-h 0 -p \fIy\fR 
+.NL
+Port \fIy\fR within system (no matter which ports are active).
+
+.TP 10
+-h \fIx\fR \fI\fR-p \fIy\fR 
+.NL
+HFI \fIx\fR, port \fIy\fR.
+
+.SH Node Types
+.NL
+
+.TP 10
+fi 
+.NL
+Fabric Interface
+
+.TP 10
+sw 
+.NL
+Switch
+
+.SH GIDs
+.NL
+
+.PP
+Specifies a 64-bit subnet and 64-bit interface ID in the form:
+.PP
+subnet:interface 
+.PP
+
+.B NOTE:
+In the following example, the GID corresponds to a PortGID. In this case, the interface ID coincides with the lower 64-bits of the GUID of the card. The interface ID will be different if the GID is a MGID (that is, multicast GID). See opafm.xml for MGID examples.
+
+.PP
+
+.br
+0xfe80000000000000:0x00117500a0000380
+
+.br
+
+.SH Output Types
+.NL
+
+.PP
+Default is node.
+.TP 10
+classportinfo 
+.NL
+Specifies the classportinfo of the SA.
+
+.TP 10
+systemguid 
+.NL
+Lists the system image GUIDs.
+
+.TP 10
+nodeguid 
+.NL
+Lists the node GUIDs.
+
+.TP 10
+portguid 
+.NL
+Lists the port GUIDs.
+
+.TP 10
+lid 
+.NL
+Lists the LIDs.
+
+.TP 10
+desc 
+.NL
+Lists the node descriptions/names.
+
+.TP 10
+path 
+.NL
+Lists the path records.
+
+.TP 10
+node 
+.NL
+Lists the node records.
+
+.TP 10
+portinfo 
+.NL
+Lists the port info records.
+
+.TP 10
+sminfo 
+.NL
+Lists the SM info records.
+
+.TP 10
+swinfo 
+.NL
+Lists the switch info records.
+
+.TP 10
+link 
+.NL
+Lists the link records.
+
+.TP 10
+scsc 
+.NL
+Lists the SC to SC mapping table records.
+
+.TP 10
+slsc 
+.NL
+Lists the SL to SC mapping table records.
+
+.TP 10
+scsl 
+.NL
+Lists the SC to SL mapping table records.
+
+.TP 10
+scvlt 
+.NL
+Lists the SC to VLt table records.
+
+.TP 10
+scvlr 
+.NL
+Lists the SC to VLr table records.
+
+.TP 10
+scvlnt 
+.NL
+Lists the SC to VLnt table records.
+
+.TP 10
+vlarb 
+.NL
+Lists the VL arbitration table records.
+
+.TP 10
+pkey 
+.NL
+Lists the PKey table records.
+
+.TP 10
+service 
+.NL
+Lists the service records.
+
+.TP 10
+mcmember 
+.NL
+Lists the multicast member records.
+
+.TP 10
+inform 
+.NL
+Lists the inform info records.
+
+.TP 10
+linfdb 
+.NL
+Lists the switch linear forwarding database (FDB) records.
+
+.TP 10
+mcfdb 
+.NL
+Lists the switch multicast FDB records.
+
+.TP 10
+trace 
+.NL
+Lists the trace records.
+
+.TP 10
+vfinfo 
+.NL
+Lists the vFabrics.
+
+.TP 10
+vfinfocsv 
+.NL
+Lists the vFabrics in CSV format.
+
+.TP 10
+vfinfocsv2 
+.NL
+Lists the vFabrics in CSV format with enums.
+
+.TP 10
+fabricinfo 
+.NL
+Specifies the summary of fabric devices.
+
+.TP 10
+quarantine 
+.NL
+Lists the quarantined nodes.
+
+.TP 10
+conginfo 
+.NL
+Lists the Congestion Info Records.
+
+.TP 10
+swcongset 
+.NL
+Lists the Switch Congestion Settings.
+
+.TP 10
+swportcong 
+.NL
+Lists the Switch Port Congestion Settings.
+
+.TP 10
+hficongset 
+.NL
+Lists the HFI Congestion Settings.
+
+.TP 10
+hficongcon 
+.NL
+Lists the HFI Congestion Control Settings.
+
+.TP 10
+bfrctrl 
+.NL
+Lists the buffer control tables.
+
+.TP 10
+cableinfo 
+.NL
+Lists the Cable Info records.
+
+.TP 10
+portgroup 
+.NL
+Lists the AR Port Group records.
+
+.TP 10
+portgroupfdb 
+.NL
+Lists the AR Port Group FWD records.
+
+.TP 10
+dglist 
+.NL
+Lists the Device Group Names.
+
+.TP 10
+dgmember 
+.NL
+Lists the Device Group records.
+
+.TP 10
+dtree 
+.NL
+Lists the Device Tree records.
+
+.TP 10
+swcost 
+.NL
+Lists the switch cost records.
+
+.PP
+The vfinfocsv and vfinfocsv2 output formats are designed to make it easier to script vfinfo queries. One line is output per vFabric of the form:
+.PP
+
+.br
+
+.br
+name:index:pkey:sl:mtu:rate:optionflag::mcastSl
+
+.br
+
+.PP
+The only difference between these two formats is how the MTU and rate are output. vfinfocsv outputs MTU and rate in human/text readable format. vfinfocsv2 outputs MTU and rate as enumerations defined for the SMA protocol. The opagetvf command is based on this capability of opasaquery. For more information, see
+\fIopagetvf\fR
+.
+.SH Example 
+.NL
+opasaquery -o desc -t fi
+.SH Input Options vs. Output Permitted
+.NL
+
+.PP
+The following list shows the input (assorted query by options) and outputs (-o) that are permitted.
+.TP 10
+None
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, path, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, vfinfo, vfinfocsv, vfinfocsv2, scsc, slsc, scvlt, scnlmt, linfdb, classportinfo, fabricinfo, quarantine, conginfo, swcongset, swportcong, hficongset, hficongcon, bfrctl, cableinfo, portgroup, portgroupfdb, dglist, dgmember, dtree 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+trace 
+
+.RE
+
+
+.TP 10
+-t \fInode\(ultype\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, node, dglist, dgmember, dtree 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+portinfo, sminfo, swinfo, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, trace, vfinfo, vfinfocsv, vfinfocsv2 
+
+.RE
+
+
+.TP 10
+-l \fIlid\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, path, node, portinfo, swinfo, slvl, vlarb, pkey, mcmember, linfdb, mcfdb, dgmember, dtree 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+sminfo, link, inform, service, trace, vfinfo, vfinfocsv, vfinfocsv2, dglist 
+
+.RE
+
+
+.TP 10
+-k \fIpkey\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+mcmember, path, vfinfo, vfinfocsv, vfinfocsv2 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemimageguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-i
+\fIvfindex\fR
+
+
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+vfinfo, vfinfocsv, vfinfocsv2 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemimageguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-s \fIsystem\(ulimage\(ulguid\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, node 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, trace, vfinfo, vfinfocsv, vfinfocsv2, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-n \fInode\(ulguid\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, node 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, trace, vfinfo, vfinfocsv, vfinfocsv2, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-g \fIport\(ulguid\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, path, node, trace, dgmember 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+portinfo, sminfo, swinfo, link, vlarb, pkey, linfdb, mcfdb, vfinfo, vfinfocsv, vfinfocsv2, dglist, dtree, service, mcmember, inform 
+
+.RE
+
+
+.TP 10
+-u \fIport\(ulgid\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path, service, mcmember, inform, trace 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, linfdb, mcfdb, vfinfo, vfinfocsv, vfinfocsv2, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-m \fImulticast\(ulgid\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+mcmember, vfinfo, vfinfocsv, vfinfocsv2 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, path, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, inform, linfdb, mcfdb, trace, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-d \fInode\(uldescription\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+systemguid, nodeguid, portguid, lid, desc, node, dgmember 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+trace, dglist, dtree 
+
+.RE
+
+
+.TP 10
+-D \fIdg\(ulname\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+dgmember 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, path, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, inform, linfdb, mcfdb, trace, dglist, dtree 
+
+.RE
+
+
+.TP 10
+-P \fIport\(ulguid\(ulpair\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path, trace 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-S \fIserviceId\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path, vfinfo, vfinfocsv, vfinfocsv2, service 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemimageguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, mcmember, inform, linfdb, mcfdb, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-L \fISL\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path, vfinfo, vfinfocsv, vfinfocsv2 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemimageguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-G \fIgid\(ulpair\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path, trace 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-a \fIport\(ulguid\(ullist\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, trace, dglist, dgmember, dtree 
+
+.RE
+
+
+.TP 10
+-A \fIgid\(ullist\fR 
+.NL
+
+.RS
+.TP 10
+
+.sp
+-o output permitted
+path 
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+-o output not permitted
+systemguid, nodeguid, portguid, lid, desc, node, portinfo, sminfo, swinfo, link, vlarb, pkey, service, mcmember, inform, linfdb, mcfdb, trace, dglist, dgmember, dtree 
+
+.RE
+

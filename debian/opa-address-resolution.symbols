@@ -1,0 +1,3 @@
+libdsap.so.1.0.0 opa-address-resolution #MINVER#
+ LIBDSAP_1.0.0@LIBDSAP_1.0.0 10.6.1.0
+ provider_query@LIBDSAP_1.0.0 10.6.1.0

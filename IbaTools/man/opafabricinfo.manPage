@@ -1,0 +1,194 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opafabricinfo 1 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
+.SH NAME
+opafabricinfo
+
+.NL
+
+.PP
+Provides a brief summary of the components in the fabric, using the first active port on the given local host to perform its analysis. opafabricinfo is supplied in both:
+.IP \(bu
+Intel(R) Omni-Path Fabric Suite FastFabric Toolset
+In this situation, the command can manage more than one fabric (subnet).
+
+.IP \(bu
+FastFabric Tools
+In this situation, the command performs analysis against the first active port on the system only. It takes no options and uses no environment variables.
+
+.PP
+opafabricinfo can be very useful as a quick assessment of the fabric state. It can be run against a known good fabric to identify its components and then later run to see if anything has changed about the fabric configuration or state.
+.PP
+For more extensive fabric analysis, use opareport, opareports, and opatop. These tools can be found in the 
+\fIIntel(R) Omni-Path Fabric Suite FastFabric User Guide\fR
+
+.
+.SH Syntax
+.NL
+opafabricinfo [-t \fIportsfile\fR] [-p \fIports\fR]
+.SH Options 
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+.TP 10
+-t \fIportsfile\fR 
+.NL
+Specifies the file with list of local HFI ports used to access fabric(s) for analysis. Default is /etc/opa/ports file.
+.TP 10
+-p \fIports\fR 
+.NL
+Specifies the list of local HFI ports used to access fabrics for analysis.
+
+.IP
+Default is first active port. The first HFI in the system is 1. The first port on an HFI is 1. Uses the format hfi:port,
+.br
+for example:
+.RS
+.TP 10
+
+.sp
+0:0 
+First active port in system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+0:y 
+Port \fIy\fR within system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+x:0 
+First active port on HFI \fIx\fR.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+x:y 
+HFI \fIx\fR, port \fIy\fR.
+
+.RE
+
+.SH Environment Variables 
+.NL
+
+.PP
+The following environment variables are also used by this command:
+.TP 10
+\fBPORTS\fR 
+.NL
+List of ports, used in absence of -t and -p.
+.TP 10
+\fBPORTS\(ulFILE\fR 
+.NL
+File containing list of ports, used in absence of -t and -p.
+
+.IP
+For simple fabrics, the Intel(R) Omni-Path Fabric Suite FastFabric Toolset host is connected to a single fabric. By default, the first active port on the FastFabric Toolset host is used to analyze the fabric. However, in more complex fabrics, the FastFabric Toolset host may be connected to more than one fabric or subnet. In this case, you can specify the ports or HFIs to use with one of the following methods:
+.RS
+
+.IP \(bu
+On the command line using the -p option.
+.IP \(bu
+In a file specified using the -t option.
+.IP \(bu
+Through the environment variables \fBPORTS\fR or \fBPORTS\(ulFILE\fR.
+.IP \(bu
+Using the ports\(ulfile configuration option in opafastfabric.conf.
+
+.RE
+
+.IP
+If the specified port does not exist or is empty, the first active port on the local system is used. In more complex configurations, you must specify the exact ports to use for all fabrics to be analyzed.
+.SH Example 
+.NL
+opafabricinfo
+.br
+opafabricinfo -p \[aq]1:1 1:2 2:1 2:2\[aq]
+.PP
+
+\fBOutput example\fR
+
+.br
+# opafabricinfo
+.br
+Fabric 0:0 Information:
+.br
+SM: hds1fnb6241 hfi1\(ul0 Guid: 0x0011750101575ffe State: Master
+.br
+Number of HFIs: 8
+.br
+Number of Switches: 1
+.br
+Number of Links: 8
+.br
+Number of HFI Links: 8 (Internal: 0 External: 8)
+.br
+Number of ISLs: 0 (Internal: 0 External: 0)
+.br
+Number of Degraded Links: 0 (HFI Links: 0 ISLs: 0)
+.br
+Number of Omitted Links: 0 (HFI Links: 0 ISLs: 0)
+.SH Output Definitions
+.NL
+
+.TP 10
+SM 
+.NL
+Each subnet manger (SM) running in the fabric is listed along with its node name, port GUID, and present SM state (Master, Standby, etc.).
+.TP 10
+Number of HFIs 
+.NL
+Number of unique host fabric interfaces (HFIs) in the fabric. An FI with two connected ports is counted as a single FI.
+.TP 10
+.BR
+
+.PP
+
+.B NOTE:
+Fabric Interfaces include HFIs in servers as well as HFIs within I/O Modules, Native Storage, etc.
+
+
+.TP 10
+Number of Switches 
+.NL
+Number of connected switches in the fabric.
+.TP 10
+Number of Links 
+.NL
+Number of links in the fabric. Note that a large switch may have internal links.
+.TP 10
+Number of HFI Links 
+.NL
+Number of HFI links (Internal and External) in the fabric.
+.TP 10
+Number of ISLs 
+.NL
+Number of Interswitch Links (Internal and External) in the fabric.
+.TP 10
+Number of Degraded Links 
+.NL
+Number of degraded links (HSI and ISL) in the fabric.
+.TP 10
+Number of Omitted Links 
+.NL
+Number of omitted links (HSI and ISL) in the fabric.

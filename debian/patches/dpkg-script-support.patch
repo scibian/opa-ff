@@ -1,0 +1,37 @@
+Description: Add dpkg support to scripts that test for packages
+ Some scripts use the package manager to test what is installed. Add
+ detection of Debian and use dpkg for this.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2017-11-20>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/IbaTools/FastFabric/opahostsmanalysis.sh
++++ b/IbaTools/FastFabric/opahostsmanalysis.sh
+@@ -31,6 +31,12 @@
+ # [ICS VERSION STRING: unknown]
+ # Analyze host SM for errors and/or changes relative to baseline
+ 
++DEBIAN=no
++
++if [ -f /etc/debian_version ] ; then
++	DEBIAN=yes
++fi
++
+ # optional override of defaults
+ if [ -f /etc/opa/opafastfabric.conf ]
+ then
+@@ -149,7 +155,12 @@
+ 		mkdir -p $latest_dir
+ 		rm -rf $latest.*
+ 
+-		rpm -q opa-fm > $latest.smver 2>&1
++		if [ $DEBIAN != "yes" ] ; then
++			rpm -q opa-fm > $latest.smver 2>&1
++		else
++			dpkg-query -W -f='${binary:Package}_${Version}${Release}_${Architecture}\n' opa-fm &> $latest.smver
++		fi
++
+ 		if [ $? != 0 ]
+ 		then
+ 			echo "opahostsmanalysis: Error: Host SM not installed" >&2
