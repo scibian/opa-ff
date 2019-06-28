@@ -1,0 +1,78 @@
+Description: Port opacapture to Debian.
+ Use dpkg instead of rpm.
+ Change opa-fm-debuginfo to opa-fm-dbg.
+ Add Debian config dirs.
+ Add directory for Debian opa-mpi-apps.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2019-03-13>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/OpenIb_Host/LINUX/opacapture.sh
++++ b/OpenIb_Host/LINUX/opacapture.sh
+@@ -132,21 +132,35 @@
+ echo "Getting software and firmware version information ..."
+ echo "[ICS VERSION STRING: unknown]" > /$dir/sw_version
+ uname -a > /$dir/os_version
++if [ -f /etc/debian_version ]; then
++	dpkg-query -W --showformat='${db:Status-Abbrev}: ${binary:Package}-${Version}-${Architecture}\n' > /$dir/debs.detailed
++	dpkg-query -W > /$dir/debs
++else
+ # we use query format so we can get ARCH information
+ rpm --queryformat '[%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n]' -qa > /$dir/rpms.detailed
+ # get simple version just to be safe
+ rpm -qa > /$dir/rpms
++fi
+ 
+ sha256sum /usr/lib/opa-fm/runtime/sm > /$dir/sha256sums
+ sha256sum /usr/lib/opa-fm/runtime/fe >> /$dir/sha256sums
+ 
+ echo "Capturing FM binaries and debuginfo if available"
++if [ -f /etc/debian_version ]; then
++    dpkg-query -l opa-fm-dbg > /dev/null 2>&1
++	if [ $? -eq 0 ]; then
++		debuginfofiles=$(dpkg-query -L opa-fm-dbg | xargs -I% bash -c "if [ -f % ]; then echo %; fi")
++		tar -zcf /$dir/opa-fm-dbg.tgz $debuginfofiles > /dev/null 2>&1
++		unset debuginfofiles
++	fi
++else
+ rpm -q opa-fm-debuginfo > /dev/null 2>&1
+ if [ $? -eq 0 ]; then
+ 	debuginfofiles=$(rpm -ql opa-fm-debuginfo | xargs -I% bash -c "if [ -f % ]; then echo %; fi")
+ 	tar -zcf /$dir/opa-fm-debuginfo.tgz $debuginfofiles > /dev/null 2>&1
+ 	unset debuginfofiles
+ fi
++fi
+ tar -zcf /$dir/opa-fm-bins.tgz /usr/lib/opa-fm/runtime/ > /dev/null 2>&1
+ 
+ # Finding the PCI devices
+@@ -186,7 +200,11 @@
+ if [ $(command -v systemctl) ]; then
+ 	systemctl list-unit-files > /$dir/chkconfig.systemd
+ fi
++if [ -f /etc/debian_version ]; then
++	:
++else
+ chkconfig --list > /$dir/chkconfig 2>/dev/null
++fi
+ ulimit -a > /$dir/ulimit
+ uptime > /$dir/uptime
+ 
+@@ -486,7 +504,7 @@
+ 
+ cd /
+ files="$dir"
+-for f in var/log/opa* var/log/ics_* var/log/messages* var/log/ksyms.* var/log/boot* etc/*release* etc/sysconfig/ipoib.cfg* etc/opa etc/modules.conf* etc/modprobe.conf* etc/sysconfig/network-scripts/ifcfg* etc/dapl/ibhosts etc/hosts etc/sysconfig/boot etc/sysconfig/firstboot etc/dat.conf etc/sysconfig/network/ifcfg* etc/infiniband etc/sysconfig/*config etc/security etc/opa-fm/opafm.xml etc/sysconfig/iview_fm.config var/log/fm* var/log/sm* var/log/bm* var/log/pm* var/log/fe* var/log/opensm* var/log/ipath* etc/rc.d/rc.local etc/modprobe.d boot/grub/menu.lst boot/grub/grub.conf boot/grub2/grub.cfg boot/grub2/grubenv boot/grub2/device.map etc/grub*.conf etc/udev* etc/opensm etc/sysconfig/opensm etc/rdma/* etc/modprobe.d/* etc/dracut.conf.d/* etc/nsswitch.conf etc/sysconfig/irqbalance
++for f in var/log/opa* var/log/ics_* var/log/messages* var/log/ksyms.* var/log/boot* etc/*release* etc/network/interfaces etc/network/interfaces.d/* etc/sysconfig/ipoib.cfg* etc/opa etc/modules.conf* etc/modprobe.conf* etc/sysconfig/network-scripts/ifcfg* etc/dapl/ibhosts etc/hosts etc/sysconfig/boot etc/sysconfig/firstboot etc/dat.conf etc/sysconfig/network/ifcfg* etc/infiniband etc/sysconfig/*config etc/security etc/opa-fm/opafm.xml etc/sysconfig/iview_fm.config var/log/fm* var/log/sm* var/log/bm* var/log/pm* var/log/fe* var/log/opensm* var/log/ipath* etc/rc.d/rc.local etc/modprobe.d boot/grub/menu.lst boot/grub/grub.conf boot/grub2/grub.cfg boot/grub2/grubenv boot/grub2/device.map etc/grub*.conf etc/udev* etc/opensm etc/sysconfig/opensm etc/rdma/* etc/modprobe.d/* etc/dracut.conf.d/* etc/nsswitch.conf etc/sysconfig/irqbalance
+ do
+ 	if [ -e "$f" ]
+ 	then
+@@ -509,7 +527,7 @@
+ 	done
+ fi
+ 
+-for f in usr/local/src/mpi_apps/core* usr/src/opa/mpi_apps/core* usr/src/opa/shmem_apps/core*
++for f in usr/local/src/mpi_apps/core* usr/src/opa/mpi_apps/core* usr/src/opa/shmem_apps/core* usr/src/opa-mpi-apps/core*
+ do
+ 	if [ -e "$f" ]
+ 	then

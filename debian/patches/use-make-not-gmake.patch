@@ -1,0 +1,18 @@
+Description: Use make instead of gmake
+ MpiApps/apps/Makefile uses gmake. "make" should be used on Debian.
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2018-10-02>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/MpiApps/apps/Makefile
++++ b/MpiApps/apps/Makefile
+@@ -152,7 +152,7 @@
+ 
+ IMB: SHOWMPI
+ 	@echo "Building Intel Micro Benchmarks 4.0.2..."
+-	cd imb/src; gmake MPI_HOME=$(MPICH_PREFIX) CC=$(MPICC) -f make_mpich
++	cd imb/src; make MPI_HOME=$(MPICH_PREFIX) CC=$(MPICC) -f make_mpich
+ 	@echo
+ .PHONY: IMB
+ 

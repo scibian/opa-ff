@@ -1,0 +1,108 @@
+.\" .\" *********************************************************************
+.\" .\" *                                                                   *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
+.\" .\" *                                                                   *
+.\" .\" *                       All Rights Reserved.                        *
+.\" .\" *                                                                   *
+.\" .\" *********************************************************************
+
+.TH opashowmc 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
+.SH NAME
+opashowmc
+
+.NL
+
+.PP
+
+\fB(Linux)\fR
+Displays the Intel(R) Omni-Path Multicast groups created for the fabric along with the Intel(R) Omni-Path Host Fabric Interface (HFI) ports which are a member of each multicast group. This command can be helpful when attempting to analyze or debug Intel(R) Omni-Path multicast usage by applications or ULPs such as IPoIB.
+.SH Syntax
+.NL
+opashowmc [-v] [-m \fImgid\fR] [-t \fIportsfile\fR] [-p \fIports\fR]
+.SH Options
+.NL
+
+.TP 10
+--help 
+.NL
+Produces full help text.
+
+.TP 10
+-v 
+.NL
+Returns verbose output and shows name of each member.
+
+.TP 10
+-m \fImgid\fR 
+.NL
+Shows the membership of the group <mgid> only.
+
+.TP 10
+-t \fIportsfile\fR 
+.NL
+Specifies the file with list of local HFI ports used to access fabric(s) for analysis. Default is /etc/opa/ports file.
+
+.TP 10
+-p \fIports\fR 
+.NL
+Specifies the list of local HFI ports used to access fabric(s) for analysis.
+
+.IP
+Default is first active port. The first HFI in the system is 1. The first port on an HFI is 1. Uses the format hfi:port,
+.br
+for example:
+.RS
+.TP 10
+
+.sp
+0:0 
+First active port in system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+0:y 
+Port \fIy\fR within system.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+x:0 
+First active port on HFI \fIx\fR.
+
+.RE
+
+.RS
+.TP 10
+
+.sp
+x:y 
+HFI \fIx\fR, port \fIy\fR.
+
+.RE
+
+.SH Examples 
+.NL
+opashowmc
+.br
+opashowmc -p \[aq]1:1 1:2 2:1 2:2\[aq] opashowmc -m 0xff12401b80010000:0x00000000ffffffff
+.SH Environment Variables
+.NL
+
+.PP
+The following environment variables are also used by this command:
+.TP 10
+\fBPORTS\fR 
+.NL
+List of ports, used in absence of -t and -p.
+
+.TP 10
+\fBPORTS\(ulFILE\fR 
+.NL
+File containing list of ports, used in absence of -t and -p.
