@@ -1,9 +1,11 @@
 Source: opa-ff
-Maintainer: Brian T. Smith <bsmith@systemfabricworks.com>
-Section: utils
+Maintainer: Scibian Project <packaging@scibian.org>
+Section: net
 Priority: extra
 Standards-Version: 3.9.8
 Homepage: http://www.intel.com
+Vcs-Git: https://github.com/scibian/opa-ff.git
+Vcs-Browser: https://github.com/scibian/opa-ff
 Build-Depends: debhelper (>= 10),
                ibacm (>= 1.2.0),
                libexpat-dev,
