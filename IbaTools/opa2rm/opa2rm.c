@@ -286,7 +286,7 @@ void SetNameToGuid(NameData_t *namep, EUI64 guid)
 {
 	sprintf(namep->name, "0x%016"PRIx64, guid);
 	namep->prefix = NULL;
-	strncpy(namep->body, namep->name, NODE_DESCRIPTION_ARRAY_SIZE);
+	StringCopy(namep->body, namep->name, NODE_DESCRIPTION_ARRAY_SIZE);
 	namep->start = 0;
 	namep->end = 0;
 	namep->leadzero = FALSE;
@@ -334,9 +334,7 @@ void CopyName(NameData_t *namep, const char *name, EUI64 guid, name_mode_t mode,
 		// change spaces to underscore
 		int l;
 		char *d;
-		// use optimized libc routines, two passes through but
-		// strncpy might optimize cache fill better
-		strncpy(namep->name, name, sizeof(namep->name));
+		StringCopy(namep->name, name, sizeof(namep->name));
 		len = strnlen(namep->name, sizeof(namep->name));
 		for (l=len, d=namep->name; l; d++, l--)
 			if (isspace(*d))
@@ -345,9 +343,7 @@ void CopyName(NameData_t *namep, const char *name, EUI64 guid, name_mode_t mode,
 		// truncate at 1st space
 		int l;
 		char *d;
-		// use optimized libc routines, two passes through but
-		// strncpy might optimize cache fill better
-		strncpy(namep->name, name, sizeof(namep->name));
+		StringCopy(namep->name, name, sizeof(namep->name));
 		len = strnlen(namep->name, sizeof(namep->name));
 		for (l=len, d=namep->name; l; d++, l--) {
 			if (isspace(*d)) {
@@ -383,7 +379,7 @@ void CopyName(NameData_t *namep, const char *name, EUI64 guid, name_mode_t mode,
 	}
 
 	namep->prefix = prefix;
-	strncpy(namep->body, namep->name, sizeof(namep->body));
+	StringCopy(namep->body, namep->name, sizeof(namep->body));
 	// assume no number
 	namep->numlen = 0;
 	namep->start = 0;
@@ -1303,9 +1299,9 @@ void Usage_full(void)
 	fprintf(stderr, "                                name)\n");
 	fprintf(stderr, "   nodepat:value1:port:value2 - value1 is glob pattern for node description\n");
 	fprintf(stderr, "                                (node name), value2 is port #\n");
-	fprintf(stderr, "   nodetype:value             - value is node type (SW, FI or RT)\n");
+	fprintf(stderr, "   nodetype:value             - value is node type (SW or FI)\n");
 	fprintf(stderr, "   nodetype:value1:port:value2\n");
-	fprintf(stderr, "                              - value1 is node type (SW, FI or RT)\n");
+	fprintf(stderr, "                              - value1 is node type (SW or FI)\n");
 	fprintf(stderr, "                                value2 is port #\n");
 	fprintf(stderr, "   rate:value                 - value is string for rate (25g, 50g, 75g, 100g)\n");
 	fprintf(stderr, "                                omits switch mgmt port 0\n");
@@ -1456,6 +1452,11 @@ int main(int argc, char ** argv)
 
 	if (optind < argc) {
 		topology_in_file = argv[optind++];
+		if (!topology_in_file){
+			fprintf(stderr, "opa2rm: Error: null input filename\n");
+			exitstatus = 1;
+			goto done;
+		}
 	} else {
 		fprintf(stderr, "opa2rm: Missing topology_input argument\n");
 		Usage();

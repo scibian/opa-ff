@@ -87,7 +87,7 @@ CMD_TARGETS_MISC	= opaverifyhosts hostverify.sh
 CLEAN_TARGETS_MISC	=  
 CLEAN_TARGETS		= $(OBJECTS) $(RSCOBJECTS) $(IDL_TARGETS) $(CLEAN_TARGETS_MISC)
 # other files to remove during clobber phase
-CLOBBER_TARGETS_MISC=
+CLOBBER_TARGETS_MISC= nodeverify.sh
 # sub-directory to install to within bin
 BIN_SUBDIR		= 
 # sub-directory to install to within include

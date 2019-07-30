@@ -1,6 +1,6 @@
 /* BEGIN_ICS_COPYRIGHT7 ****************************************
 
-Copyright (c) 2015-2018, Intel Corporation
+Copyright (c) 2015-2019, Intel Corporation
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -39,6 +39,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <math.h>
 #include <arpa/inet.h>
 #include <stl_helper.h>
+#include <ib_utils_openib.h>
 #include <umad.h>
 #include <time.h>
 #include <string.h>
@@ -64,7 +65,7 @@ typedef enum {
 	LINK_CONN_REPORT =3
 } LinkReport_t;
 
-uint8           g_verbose       = 0;
+uint8           		g_verbose       = 0;
 int				g_exitstatus	= 0;
 int				g_persist		= 0;	// omit transient data like LIDs
 int				g_hard			= 0;	// omit software configured items
@@ -84,7 +85,9 @@ int				g_max_lft       = 0;	// Size of largest switch LFT
 int				g_quiet         = 0;	// omit progress output
 uint32          g_begin         = 0;	// begin time for interval
 uint32          g_end           = 0;	// end time for interval
-int		g_use_scsc	= 0; // should validatecreditloops use scsc tables
+int		        g_use_scsc      = 0;    // should validatecreditloops use scsc tables
+int		        g_rc			= 0;    // should validateroutes use rc
+int				g_ms_timeout = OMGT_DEF_TIMEOUT_MS;
 
 // All the information about the fabric
 FabricData_t g_Fabric;
@@ -131,12 +134,6 @@ void XmlPrintStrLen(const char *tag, const char* value, int len, int indent)
 	for (;len && *value; --len, ++value) {
 		if (*value == '&')
 			printf("&amp;");
-		else if(*value==' '){
-                        if(strcmp(tag,"VendorPN")){
-                                if(isalnum(*(value+1)))
-                                        putchar((int)(unsigned)(unsigned char)*value);
-                        }
-                }
 		else if (*value == '<')
 			printf("&lt;");
 		else if (*value == '>')
@@ -468,6 +465,8 @@ void ShowLinkBriefSummaryHeader(Format_t format, int indent, int detail)
 	}
 }
 
+#define MAX_CABLE_LENGTH_STR_LEN 8		// ~2-3 digits (poss. decimal pt) plus 'm'
+
 void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int detail, uint8 portType)
 {
 	// CableInfo is organized in 128-byte pages but is stored in 64-byte half-pages
@@ -480,7 +479,8 @@ void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int deta
 	boolean cableLenValid;			// Copper cable length valid
 	boolean qsfp_dd;
 	char tempStr[STL_CIB_STD_MAX_STRING + 1] = {'\0'};
-	char tempBuf[129];
+	char tempStr2[32] = {'\0'};
+	char tempBuf[192];
 	unsigned int i;
 
 	if (pCableData)
@@ -515,18 +515,24 @@ void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int deta
 							tempBuf[i + 1 + strlen(cableTypeInfo.cableTypeShortDesc)] = ' ';
 #endif
 						 	i = STL_CIB_LINE1_FIELD2;
-                            StlCableInfoValidCableLengthToText(pCableInfo->len_om4, cableLenValid, &tempBuf[i]);
+                            StlCableInfoOM4LengthToText(pCableInfo->len_om4, cableLenValid, MAX_CABLE_LENGTH_STR_LEN, &tempBuf[i]);
                             tempBuf[i + strlen(&tempBuf[i])] = ' ';
 						 	i = STL_CIB_LINE1_FIELD3;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+                        	memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE1_FIELD4;
                         	strcpy(&tempBuf[i], "P/N ");
 						 	i = STL_CIB_LINE1_FIELD5;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+                        	memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE1_FIELD6;
                         	strcpy(&tempBuf[i], "Rev ");
 						 	i = STL_CIB_LINE1_FIELD7;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+                        	memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE1_FIELD8;
                         	tempBuf[i] = '\0';
                         	printf("%*s%s\n", indent, "", tempBuf);
@@ -535,12 +541,15 @@ void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int deta
 				//line2
 				memset(tempBuf, ' ', sizeof(tempBuf));
                         	i = 0;
-                        	strcpy(&tempBuf[i], StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high));
+                        	StringCopy(&tempBuf[i], StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high),
+								strlen(StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high)) + 1);
                         	tempBuf[i + strlen(&tempBuf[i])] = ' ';
 						 	i = STL_CIB_LINE2_FIELD2;
                         	strcpy(&tempBuf[i], "S/N ");
 						 	i = STL_CIB_LINE2_FIELD3;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+                        	memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE2_FIELD4;
                         	strcpy(&tempBuf[i], "Mfg ");
 						 	i = STL_CIB_LINE2_FIELD5;
@@ -559,25 +568,25 @@ void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int deta
 				printf("%*sConnector: %s\n", indent+4, "", tempBuf);
 				StlCableInfoCableTypeToTextLong(pCableInfo->dev_tech.s.xmit_tech, pCableInfo->connector, tempBuf);
 				printf("%*sDeviceTech: %s\n", indent+4, "", tempBuf);
-                StlCableInfoValidCableLengthToText(pCableInfo->len_om4, cableLenValid, tempBuf);
+                StlCableInfoOM4LengthToText(pCableInfo->len_om4, cableLenValid, sizeof(tempBuf), tempBuf);
 				printf("%*sOM4Length: %s\n", indent+4, "", tempBuf);
 				memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
-				tempStr[sizeof(pCableInfo->vendor_name)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
 				printf("%*sVendorName: %s\n", indent+4, "", tempStr);
 				printf( "%*sVendorOUI: 0x%02x%02x%02x\n", indent+4, "", pCableInfo->vendor_oui[0],
 				pCableInfo->vendor_oui[1], pCableInfo->vendor_oui[2] );
 				memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
-				tempStr[sizeof(pCableInfo->vendor_pn)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
 				printf("%*sVendorPN: %s\n", indent+4, "", tempStr);
 				memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
-				tempStr[sizeof(pCableInfo->vendor_rev)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
 				printf("%*sVendorRev: %s\n", indent+4, "", tempStr);
 				memcpy(tempBuf, StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high),
 					strlen(StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high)));
 				tempStr[strlen(StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high))] = '\0';
 				printf("%*sPoweClass: %s\n", indent+4, "", tempStr);
 				memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
-				tempStr[sizeof(pCableInfo->vendor_sn)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
 				printf("%*sVendorSN: %s\n", indent+4, "", tempStr);
 				StlCableInfoDateCodeToText(pCableInfo->date_code, tempBuf);
 				printf("%*sDateCode: %s\n", indent+4, "", tempBuf);
@@ -594,17 +603,25 @@ void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int deta
 		case STL_PORT_TYPE_STANDARD:
 			printf("%*s<CableInfo>\n", indent, "");
 			if (detail <= 6) {
-				strncpy(tempBuf, cableTypeInfo.cableTypeShortDesc, strlen(cableTypeInfo.cableTypeShortDesc));
-				XmlPrintStr("DeviceTechShort", tempBuf, indent+4);
+				StringCopy(tempStr2, cableTypeInfo.cableTypeShortDesc, sizeof(tempStr2));
+				XmlPrintStr("DeviceTechShort", tempStr2, indent+4);
 				//maps to text line 1
-				StlCableInfoValidCableLengthToText(pCableInfo->len_om4, cableLenValid, tempBuf);
+	 			StlCableInfoOM4LengthToText(pCableInfo->len_om4, cableLenValid, sizeof(tempBuf), tempBuf);
 				XmlPrintStr("OM4Length", tempBuf, indent+4);
 				XmlPrintStr("Length", tempBuf, indent+4);
 
-				XmlPrintStrLen("VendorName", (char*)pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name), indent+4);
-				XmlPrintStrLen("VendorPN", (char*)pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn), indent+4);
-				XmlPrintStrLen("VendorRev", (char*)pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev), indent+4);
-				XmlPrintStrLen("VendorSN", (char*)pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+				XmlPrintStrLen("VendorName", tempStr, sizeof(pCableInfo->vendor_name), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+				XmlPrintStrLen("VendorPN", tempStr, sizeof(pCableInfo->vendor_pn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
+				XmlPrintStrLen("VendorRev", tempStr, sizeof(pCableInfo->vendor_rev), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+				XmlPrintStrLen("VendorSN", tempStr, sizeof(pCableInfo->vendor_sn), indent+4);
 				StlCableInfoDateCodeToText(pCableInfo->date_code, tempBuf);
 				XmlPrintStrLen("DateCode", (char*)tempBuf, sizeof(tempBuf), indent+4);
 				XmlPrintHex("VendorOUI", (pCableInfo->vendor_oui[0]<<16) + (pCableInfo->vendor_oui[1]<<8) + pCableInfo->vendor_oui[2], indent+4);
@@ -619,12 +636,21 @@ void ShowCableSummary(uint8_t *pCableData, Format_t format, int indent, int deta
 				XmlPrintStr("OM4Length", tempBuf, indent+4);
 				XmlPrintStr("Length", tempBuf, indent+4);
 
-				XmlPrintStrLen("VendorName", (char*)pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name), indent+4);
-				XmlPrintStrLen("VendorPN", (char*)pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn), indent+4);
-				XmlPrintStrLen("VendorRev", (char*)pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev), indent+4);
-				strcpy(tempBuf, StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high));
+				memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+				XmlPrintStrLen("VendorName", tempStr, sizeof(pCableInfo->vendor_name), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+				XmlPrintStrLen("VendorPN", tempStr, sizeof(pCableInfo->vendor_pn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
+				XmlPrintStrLen("VendorRev", tempStr, sizeof(pCableInfo->vendor_rev), indent+4);
+				StringCopy(tempBuf, StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high),
+					strlen(StlCableInfoPowerClassToText(pCableInfo->ext_ident.s.pwr_class_low, pCableInfo->ext_ident.s.pwr_class_high)) + 1);
 				XmlPrintStr("PowerClass", tempBuf, indent+4);
-				XmlPrintStrLen("VendorSN", (char*)pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+				XmlPrintStrLen("VendorSN", tempStr, sizeof(pCableInfo->vendor_sn), indent+4);
 				StlCableInfoDateCodeToText(pCableInfo->date_code, tempBuf);
 				XmlPrintStrLen("DateCode", (char*)tempBuf, sizeof(tempBuf), indent+4);
 				XmlPrintHex("VendorOUI", (pCableInfo->vendor_oui[0]<<16) + (pCableInfo->vendor_oui[1]<<8) + pCableInfo->vendor_oui[2], indent+4);
@@ -651,11 +677,14 @@ void ShowCableSummaryDD(uint8_t *pCableData, Format_t format, int indent, int de
 	STL_CABLE_INFO_UP0_DD *pCableInfo = (STL_CABLE_INFO_UP0_DD *)pCableData;
 	CableTypeInfoType cableTypeInfo;
 	char tempStr[STL_CIB_STD_MAX_STRING + 1] = {'\0'};
-	char tempBuf[129];
+	char tempStr2[32] = {'\0'};
+	char tempBuf[192];
 	unsigned int i;
-#define MAX_CABLE_LENGTH_STR_LEN 8		// ~2-3 digits (poss. decimal pt) plus 'm'
+    boolean cableLenValid;
 
 	StlCableInfoDecodeCableType(pCableInfo->cable_type, pCableInfo->connector, pCableInfo->ident, &cableTypeInfo);
+    cableLenValid = cableTypeInfo.cableLengthValid;
+
 
 	switch (format) {
 	case FORMAT_TEXT:
@@ -674,18 +703,24 @@ void ShowCableSummaryDD(uint8_t *pCableData, Format_t format, int indent, int de
 							tempBuf[i + 1 + strlen(cableTypeInfo.cableTypeShortDesc)] = ' ';
 #endif
 						 	i = STL_CIB_LINE1_FIELD2;
-							StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, MAX_CABLE_LENGTH_STR_LEN, &tempBuf[i]);
+							StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, cableLenValid, MAX_CABLE_LENGTH_STR_LEN, &tempBuf[i]);
                             tempBuf[i + strlen(&tempBuf[i])] = ' ';
 						 	i = STL_CIB_LINE1_FIELD3;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+                        	memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE1_FIELD4;
                         	strcpy(&tempBuf[i], "P/N ");
 						 	i = STL_CIB_LINE1_FIELD5;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+                        	memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE1_FIELD6;
                         	strcpy(&tempBuf[i], "Rev ");
 						 	i = STL_CIB_LINE1_FIELD7;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+                        	memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE1_FIELD8;
                         	tempBuf[i] = '\0';
                         	printf("%*s%s\n", indent, "", tempBuf);
@@ -699,7 +734,9 @@ void ShowCableSummaryDD(uint8_t *pCableData, Format_t format, int indent, int de
 						 	i = STL_CIB_LINE2_FIELD2;
                         	strcpy(&tempBuf[i], "S/N ");
 						 	i = STL_CIB_LINE2_FIELD3;
-                        	memcpy(&tempBuf[i], pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+                        	memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+							StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+                        	memcpy(&tempBuf[i], tempStr, strlen(tempStr));
 						 	i = STL_CIB_LINE2_FIELD4;
                         	strcpy(&tempBuf[i], "Mfg ");
 						 	i = STL_CIB_LINE2_FIELD5;
@@ -720,21 +757,21 @@ void ShowCableSummaryDD(uint8_t *pCableData, Format_t format, int indent, int de
 				printf("%*sConnector: %s\n", indent+4, "", tempBuf);
 				StlCableInfoCableTypeToTextLong(pCableInfo->cable_type, pCableInfo->connector, tempBuf);
 				printf("%*sDeviceTech: %s\n", indent+4, "", tempBuf);
-				StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, sizeof(tempBuf), tempBuf);
+				StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, cableLenValid, sizeof(tempBuf), tempBuf);
 				printf("%*sCableLength: %s\n", indent+4, "", tempBuf);
 				memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
-				tempStr[sizeof(pCableInfo->vendor_name)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
 				printf("%*sVendorName: %s\n", indent+4, "", tempStr);
 				printf( "%*sVendorOUI: 0x%02x%02x%02x\n", indent+4, "", pCableInfo->vendor_oui[0],
 				pCableInfo->vendor_oui[1], pCableInfo->vendor_oui[2] );
 				memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
-				tempStr[sizeof(pCableInfo->vendor_pn)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
 				printf("%*sVendorPN: %s\n", indent+4, "", tempStr);
 				memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
-				tempStr[sizeof(pCableInfo->vendor_rev)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
 				printf("%*sVendorRev: %s\n", indent+4, "", tempStr);
 				memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
-				tempStr[sizeof(pCableInfo->vendor_sn)] = '\0';
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
 				printf("%*sVendorSN: %s\n", indent+4, "", tempStr);
 				StlCableInfoDateCodeToText(pCableInfo->date_code, tempBuf);
 				printf("%*sDateCode: %s\n", indent+4, "", tempBuf);
@@ -751,18 +788,26 @@ void ShowCableSummaryDD(uint8_t *pCableData, Format_t format, int indent, int de
 		case STL_PORT_TYPE_STANDARD:
 			printf("%*s<CableInfo>\n", indent, "");
 			if (detail <= 6) {
-                StringCopy(tempBuf, cableTypeInfo.cableTypeShortDesc, strlen(cableTypeInfo.cableTypeShortDesc)+1);
-				XmlPrintStr("DeviceTechShort", tempBuf, indent+4);
+                StringCopy(tempStr2, cableTypeInfo.cableTypeShortDesc, sizeof(tempStr2));
+				XmlPrintStr("DeviceTechShort", tempStr2, indent+4);
 				//maps to text line 1
-				StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, sizeof(tempBuf), tempBuf);
+				StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, cableLenValid, sizeof(tempBuf), tempBuf);
 				XmlPrintStr("CableLength", tempBuf, indent+4);
 				XmlPrintStr("Length", tempBuf, indent+4);
-				XmlPrintStrLen("VendorName", (char*)pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name), indent+4);
-				XmlPrintStrLen("VendorPN", (char*)pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn), indent+4);
-				XmlPrintStrLen("VendorRev", (char*)pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+				XmlPrintStrLen("VendorName", tempStr, sizeof(pCableInfo->vendor_name), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+				XmlPrintStrLen("VendorPN", tempStr, sizeof(pCableInfo->vendor_pn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
+				XmlPrintStrLen("VendorRev", tempStr, sizeof(pCableInfo->vendor_rev), indent+4);
 				snprintf(tempBuf, 20, "%.2f W max", (float)pCableInfo->powerMax / 4.0);
 				XmlPrintStr("PowerMax", tempBuf, indent+4);
-				XmlPrintStrLen("VendorSN", (char*)pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+				XmlPrintStrLen("VendorSN", tempStr, sizeof(pCableInfo->vendor_sn), indent+4);
 				StlCableInfoDateCodeToText(pCableInfo->date_code, tempBuf);
 				XmlPrintStrLen("DateCode", (char*)tempBuf, sizeof(tempBuf), indent+4);
 				XmlPrintHex("VendorOUI", (pCableInfo->vendor_oui[0]<<16) + (pCableInfo->vendor_oui[1]<<8) + pCableInfo->vendor_oui[2], indent+4);
@@ -777,14 +822,22 @@ void ShowCableSummaryDD(uint8_t *pCableData, Format_t format, int indent, int de
 				StlCableInfoCableTypeToTextLong(pCableInfo->cable_type, pCableInfo->connector, tempBuf);
 				XmlPrintStr("DeviceTech", tempBuf, indent+4);
 				//maps to text line 1
-				StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, sizeof(tempBuf), tempBuf);
+				StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, cableLenValid, sizeof(tempBuf), tempBuf);
 				XmlPrintStr("CableLength", tempBuf, indent+4);
 				XmlPrintStr("Length", tempBuf, indent+4);
-				XmlPrintStrLen("VendorName", (char*)pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+				XmlPrintStrLen("VendorName", tempStr, sizeof(pCableInfo->vendor_name), indent+4);
 				XmlPrintHex("VendorOUI", (pCableInfo->vendor_oui[0]<<16) + (pCableInfo->vendor_oui[1]<<8) + pCableInfo->vendor_oui[2], indent+4);
-				XmlPrintStrLen("VendorPN", (char*)pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn), indent+4);
-				XmlPrintStrLen("VendorRev", (char*)pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev), indent+4);
-				XmlPrintStrLen("VendorSN", (char*)pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+				XmlPrintStrLen("VendorPN", tempStr, sizeof(pCableInfo->vendor_pn), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_rev, sizeof(pCableInfo->vendor_rev));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_rev));
+				XmlPrintStrLen("VendorRev", tempStr, sizeof(pCableInfo->vendor_rev), indent+4);
+				memcpy(tempStr, pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+				StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+				XmlPrintStrLen("VendorSN", tempStr, sizeof(pCableInfo->vendor_sn), indent+4);
 				StlCableInfoDateCodeToText(pCableInfo->date_code, tempBuf);
 				XmlPrintStrLen("DateCode", (char*)tempBuf, sizeof(tempBuf), indent+4);
 			}
@@ -1144,6 +1197,7 @@ FSTATUS ShowTraceRoute(EUI64 portGuid, PortData *portp1, PortData *portp2,
 			fprintf(stderr, "Unable to open fabric interface.\n");
 			goto done;
 		} else {
+			omgt_set_timeout(omgt_port_session, g_ms_timeout);
 			status = GetTraceRoute(omgt_port_session, pathp, &pQueryResults);
 			if (FSUCCESS != status) {
 				g_exitstatus = 1;
@@ -1153,7 +1207,7 @@ FSTATUS ShowTraceRoute(EUI64 portGuid, PortData *portp1, PortData *portp2,
 		NumTraceRecords = ((STL_TRACE_RECORD_RESULTS*)pQueryResults->QueryResult)->NumTraceRecords;
 		pTraceRecords = ((STL_TRACE_RECORD_RESULTS*)pQueryResults->QueryResult)->TraceRecords;
 	} else {
-		status = GenTraceRoutePath(&g_Fabric, pathp, &pTraceRecords, &NumTraceRecords);
+		status = GenTraceRoutePath(&g_Fabric, pathp, g_rc, &pTraceRecords, &NumTraceRecords);
 		if (FSUCCESS != status) {
 			if (status == FUNAVAILABLE) {
 				fprintf(stderr, "opareport: Routing Tables not available in snapshot\n");
@@ -1377,6 +1431,7 @@ FSTATUS ShowPortsTraceRoutes(EUI64 portGuid, PortData *portp1, PortData *portp2,
 		status = omgt_open_port_by_guid(&omgt_port_session, portGuid, &params);
 		if (FSUCCESS != status)
 			goto done;
+		omgt_set_timeout(omgt_port_session, g_ms_timeout);
 		status = GetPaths(omgt_port_session, portp1, portp2, &pQueryResults);
 		if (FSUCCESS != status)
 			goto done;
@@ -1917,6 +1972,46 @@ void ShowPointBriefSummary(Point* point, uint8 find_flag, Format_t format, int i
 			}
 			if (format == FORMAT_XML) {
 				printf("%*s</System>\n", indent, "");
+			}
+			break;
+			}
+		case POINT_TYPE_NODE_PAIR_LIST:
+			{
+			LIST_ITERATOR i, j;
+			int noOfLeftNodes, noOfRightNodes;
+			DLIST *pList1 = &point->u.nodePairList.nodePairList1;
+			DLIST *pList2 = &point->u.nodePairList.nodePairList2;
+
+			noOfLeftNodes = ListCount(pList1);
+			noOfRightNodes = ListCount(pList2);
+
+			if (noOfLeftNodes != noOfRightNodes) {
+				fprintf(stderr, "Pairs are not complete \n");
+				break;
+			}
+
+			switch (format) {
+			case FORMAT_TEXT:
+				printf("%*s%u Node Pairs:\n",
+						indent, "",
+						ListCount(pList1));
+				break;
+			case FORMAT_XML:
+				printf("%*s<NodePairs>\n", indent, "");
+				XmlPrintDec("Count", ListCount(pList1), indent+4);
+				break;
+			default:
+				break;
+			}
+			for (i = ListHead(pList1), j = ListHead(pList2); (i != NULL && j != NULL);
+				i = ListNext(pList1, i), j = ListNext(pList2, j) ) {
+				NodeData *nodep1 = (NodeData*)ListObj(i);
+				NodeData *nodep2 = (NodeData*)ListObj(j);
+				ShowPointNodeBriefSummary("NodePair: ", nodep1, format, indent+4, detail);
+				ShowPointNodeBriefSummary("          ", nodep2, format, indent+4, detail);
+			}
+			if (format == FORMAT_XML) {
+				printf("%*s</NodePairs>\n", indent, "");
 			}
 			break;
 			}
@@ -3043,10 +3138,11 @@ void ShowPortSummary(PortData *portp, Format_t format, int indent, int detail)
 
 			if (!g_persist && !g_hard)
 				printf("%*sReplayDepth Buffer 0x%02x; Wire 0x%02x\n", indent+4, "",
-					pPortInfo->ReplayDepth.BufferDepth, pPortInfo->ReplayDepth.WireDepth);
+					(pPortInfo->ReplayDepthH.BufferDepthH << 8) | pPortInfo->ReplayDepth.BufferDepth,
+					(pPortInfo->ReplayDepthH.WireDepthH << 8) | pPortInfo->ReplayDepth.WireDepth);
 			else
 				printf("%*sReplayDepth Buffer 0x%02x; Wire xxxx\n", indent+4, "",
-					pPortInfo->ReplayDepth.BufferDepth);
+					(pPortInfo->ReplayDepthH.BufferDepthH << 8) | pPortInfo->ReplayDepth.BufferDepth);
 			if (g_hard)
 				printf( "%*sDiagCode: xxxxxx\n", indent+4, "");
 			else
@@ -3409,9 +3505,9 @@ void ShowPortSummary(PortData *portp, Format_t format, int indent, int detail)
 			XmlPrintHex16("VL15Init", pPortInfo->BufferUnits.s.VL15Init, indent+4);
 			XmlPrintHex8("CreditAck", pPortInfo->BufferUnits.s.CreditAck, indent+4);
 			XmlPrintHex8("BufferAlloc", pPortInfo->BufferUnits.s.BufferAlloc, indent+4);
-			XmlPrintHex8("ReplayDepthBuffer", pPortInfo->ReplayDepth.BufferDepth, indent+4);
+			XmlPrintHex16("ReplayDepthBuffer", (pPortInfo->ReplayDepthH.BufferDepthH << 8) | pPortInfo->ReplayDepth.BufferDepth, indent+4);
 			if (!g_persist && !g_hard)
-				XmlPrintHex8("ReplayDepthWire", pPortInfo->ReplayDepth.WireDepth, indent+4);
+				XmlPrintHex16("ReplayDepthWire", (pPortInfo->ReplayDepthH.WireDepthH << 8) | pPortInfo->ReplayDepth.WireDepth, indent+4);
 			
 			if (! g_hard) {
 				XmlPrintHex8("VL15CreditRate", pPortInfo->BufferUnits.s.VL15CreditRate, indent+4);
@@ -3438,11 +3534,11 @@ void ShowPortSummary(PortData *portp, Format_t format, int indent, int detail)
 				if ( portp->pQOS->SC2SLMap ) {
 					ShowSCSLTable(portp->nodep, portp, format, indent+8, detail-2);
 				}
-				if ( !(QListIsEmpty(&portp->pQOS->SC2SCMapList[0])) )  {
-					ShowSCSCTable(portp->nodep, portp, 0, format, indent+8, detail-2);
-				}
-				if ( !(QListIsEmpty(&portp->pQOS->SC2SCMapList[1])) )  {
-					ShowSCSCTable(portp->nodep, portp, 1, format, indent+8, detail-2);
+				int i = 0;
+				for(i=0; i<SC2SCMAPLIST_MAX; i++) {
+					if ( !(QListIsEmpty(&portp->pQOS->SC2SCMapList[i])) )  {
+						ShowSCSCTable(portp->nodep, portp, i, format, indent+8, detail-2);
+					}
 				}
 			}
 			if (portp->pQOS && (detail > 1) && !g_persist && !g_hard) {
@@ -3553,7 +3649,6 @@ void ShowNodeSummary(NodeData *nodep, Point *focus, Format_t format, int indent,
 			} else {
 				printf("%*sAR: xxxxxx: x\n", indent+4, "");
 			}
-
 			printf("%*sCapabilityMask: 0x%04x: %s%s\n",
 					indent+4, "",
 					pSwitchInfo->CapabilityMask.AsReg16,
@@ -3694,7 +3789,7 @@ void ShowNodeSummary(NodeData *nodep, Point *focus, Format_t format, int indent,
 	}
 	if (nodep->ioup) {
 		/* IOU report is brief, do it at top level detail for Node */
-		ShowIouSummary(nodep->ioup, focus, format, indent, detail);
+		ShowIouSummary(nodep->ioup, focus, format, indent+4, detail);
 	}
 	if (format == FORMAT_XML) {
 		printf("%*s</Node>\n", indent, "");
@@ -6077,6 +6172,88 @@ show:
 	}
 }
 
+void ShowLinkInfoReport(Point *focus, Format_t format, int indent, int detail)
+{
+	cl_map_item_t *p;
+	PortData *portp1, *portp2;
+	NodeData *nodep;
+	LIST_ITEM *q;
+
+	printf("%*sLinkInfo Summary\n", indent, "");
+	ShowPointFocus(focus, FIND_FLAG_FABRIC, format, indent, detail);
+	printf( "%*s%u Links in Fabric%s\n", indent, "",g_Fabric.LinkCount, detail?":":"" );
+	if (detail) {
+		printf("%*s   NodeGUID       Type   LID  LMC     Name          \n", indent, "");
+		printf("%*sEgress LinkSpeed  Type      NodeGUID       Port    LID       Name       \n", indent, "");
+	}
+
+	// First the switches
+	for (q=QListHead(&g_Fabric.AllSWs); q != NULL; q = QListNext(&g_Fabric.AllSWs, q)) {
+		nodep = (NodeData *)QListObj(q);
+		portp1 = FindNodePort(nodep, 0);
+
+		if (!portp1)
+			continue;
+		if (!ComparePortPoint(portp1, focus))
+			continue;
+
+		printf("%*s0x%016"PRIx64" %s  %5u   %u  %.*s \n", indent, "",
+			portp1->nodep->NodeInfo.NodeGUID,
+			StlNodeTypeToText(portp1->nodep->NodeInfo.NodeType),
+			portp1->EndPortLID, portp1->PortInfo.s1.LMC, NODE_DESCRIPTION_ARRAY_SIZE,
+			g_noname?g_name_marker:(char*)portp1->nodep->NodeDesc.NodeString);
+
+		for ( p=cl_qmap_head(&nodep->Ports);
+				p != cl_qmap_end(&nodep->Ports);
+				p = cl_qmap_next(p) ){
+			portp2 = PARENT_STRUCT(p, PortData, NodePortsEntry);
+			if (!portp2)
+				continue;
+			if (portp2->neighbor) {
+				printf("%3u      %s      %s  0x%016"PRIx64" %3u    %5u  %.*s \n", portp2->PortNum,
+					StlStaticRateToText(portp2->rate), StlNodeTypeToText(portp2->neighbor->nodep->NodeInfo.NodeType),
+					portp2->neighbor->nodep->NodeInfo.NodeGUID, portp2->neighbor->PortNum,
+					portp2->neighbor->EndPortLID, NODE_DESCRIPTION_ARRAY_SIZE,
+					g_noname?g_name_marker:(char*)portp2->neighbor->nodep->NodeDesc.NodeString);
+			}
+
+		} // End of ( p=cl_qmap_head(&nodep->Ports)
+
+	} // End of for (q=QListHead(&g_Fabric.AllSWs);
+
+	// now the FIs
+	for (q=QListHead(&g_Fabric.AllFIs); q != NULL; q = QListNext(&g_Fabric.AllFIs, q)) {
+		nodep = (NodeData *)QListObj(q);
+
+		for ( p=cl_qmap_head(&nodep->Ports);
+			p != cl_qmap_end(&nodep->Ports);
+				p = cl_qmap_next(p) ){
+			portp1 = PARENT_STRUCT(p, PortData, NodePortsEntry);
+			if (!portp1)
+				continue;
+			if (! ComparePortPoint(portp1, focus))
+				continue;
+
+			printf("%*s0x%016"PRIx64" %s  %5u   %u  %.*s\n", indent, "",
+				portp1->nodep->NodeInfo.NodeGUID,
+				StlNodeTypeToText(portp1->nodep->NodeInfo.NodeType),
+				portp1->EndPortLID, portp1->PortInfo.s1.LMC,NODE_DESCRIPTION_ARRAY_SIZE,
+				g_noname?g_name_marker:(char*)portp1->nodep->NodeDesc.NodeString);
+
+			if (portp1->neighbor){
+				printf("%3u      %s      %s  0x%016"PRIx64" %3u    %5u  %.*s\n", portp1->PortNum,
+					StlStaticRateToText(portp1->rate), StlNodeTypeToText(portp1->neighbor->nodep->NodeInfo.NodeType),
+					portp1->neighbor->nodep->NodeInfo.NodeGUID, portp1->neighbor->PortNum,
+					portp1->neighbor->EndPortLID, NODE_DESCRIPTION_ARRAY_SIZE,
+					g_noname?g_name_marker:(char*)portp1->neighbor->nodep->NodeDesc.NodeString);
+			}
+
+		} // End of ( p=cl_qmap_head(&nodep->Ports)
+
+	} // End of for (q=QListHead(&g_Fabric.AllFIs);
+
+}
+
 void ShowRoutesReport(EUI64 portGuid, Point *point1, Point *point2, Format_t format, int indent, int detail)
 {
 	switch (format) {
@@ -6267,7 +6444,8 @@ static void ValidateCLRouteCallback(PortData *portp1, PortData *portp2, void *co
 	   struct omgt_params params = {.debug_file = g_verbose > 2 ? stdout : NULL};
 	   status = omgt_open_port_by_guid(&omgt_port_session, g_portGuid, &params);
 	   if (FSUCCESS != status) 
-		   goto done; 
+		   goto done;
+	   omgt_set_timeout(omgt_port_session, g_ms_timeout);
 	   status = GetPaths(omgt_port_session, portp1, portp2, &pQueryResults); 
 	   if (FSUCCESS != status) 
 		   goto done; 
@@ -6630,6 +6808,7 @@ static void ValidateCLPathSummaryCallback(FabricData_t *fabricp, clConnData_t *c
 	   struct omgt_params params = {.debug_file = g_verbose > 2 ? stdout : NULL};
 	   if(omgt_open_port_by_guid(&omgt_port_session, g_portGuid, &params))
 		  return;
+	   omgt_set_timeout(omgt_port_session, g_ms_timeout);
 	   if (GetTraceRoute(omgt_port_session, &connp->PathInfo.path, &pQueryResults)) {
 		   omgt_close_port(omgt_port_session);
 		   return;
@@ -6637,7 +6816,7 @@ static void ValidateCLPathSummaryCallback(FabricData_t *fabricp, clConnData_t *c
 	   NumTraceRecords = ((STL_TRACE_RECORD_RESULTS *)pQueryResults->QueryResult)->NumTraceRecords; 
 	   pTraceRecords = ((STL_TRACE_RECORD_RESULTS *)pQueryResults->QueryResult)->TraceRecords;
    } else {
-      if ((status = GenTraceRoutePath(fabricp, &connp->PathInfo.path, &pTraceRecords, &NumTraceRecords))) {
+      if ((status = GenTraceRoutePath(fabricp, &connp->PathInfo.path, g_rc, &pTraceRecords, &NumTraceRecords))) {
          if (status == FUNAVAILABLE) {
             fprintf(stderr, "opareport: Routing Tables not available in snapshot\n"); 
             goto done;
@@ -7429,6 +7608,10 @@ void ShowPGReport(Point *focus, Format_t format, int indent, int detail)
 			uint8 g; 
 			
 			for (ix_lid = 1; ix_lid < switchp->LinearFDBSize; ix_lid++) {
+				if (STL_LFT_PORT_BLOCK(switchp->LinearFDB, ix_lid) == 0xFF)
+					continue;
+				if (ix_lid >= switchp->PortGroupFDBSize)
+					break;
 				g = STL_PGFT_PORT_BLOCK(switchp->PortGroupFDB,ix_lid);
 				LidsGroup[g]++;
 			}
@@ -7472,10 +7655,12 @@ void ShowPGReport(Point *focus, Format_t format, int indent, int detail)
 				}
 			
 				for (ix_lid = 1; ix_lid < switchp->LinearFDBSize; ix_lid++) {
+					if (ix_lid >= switchp->PortGroupFDBSize)
+						break;
 					g = STL_PGFT_PORT_BLOCK(switchp->PortGroupFDB,ix_lid);
 					if (format == FORMAT_XML) {
 						if (g == 0xFF)
-						continue;
+							continue;
 
 						printf( "%*s<Value LID=\"0x%.*x\">\n", indent+8, "",
 							(ix_lid <= IB_MAX_UCAST_LID ? 4:8), ix_lid );
@@ -7483,7 +7668,7 @@ void ShowPGReport(Point *focus, Format_t format, int indent, int detail)
 						printf("%*s</Value>\n", indent+8, "");
 					} else {
 						if (g == currGroup)
-						continue;
+							continue;
 						if (currGroup != 0xFFFF) {
 							if (currGroup != 0xFF) {
 								printf("%*s0x%08x - %08x %3u\n", indent+4, "",
@@ -7651,9 +7836,9 @@ static int32_t PGRouteHop(STL_LID olid, NodeData *nodep, STL_LID dlid,
 	if (length > mhops) { 
 		switch(format) {
 		case FORMAT_XML:
-			printf("%*s<ARError Value=\"HopsExceeded\">\n",indent,"");
-			XmlPrintDec("SLID",olid,indent+4);
-			XmlPrintDec("DLID",dlid,indent+4);
+			printf("%*s<ARError Value=\"HopsExceeded\">\n",indent+4,"");
+			XmlPrintDec("SLID",olid,indent+8);
+			XmlPrintDec("DLID",dlid,indent+8);
 			break;
 		default:
 			printf("%*sERROR: Path from 0x%x to 0x%x exceeds normal path length or max hops.\n",
@@ -7695,9 +7880,9 @@ static int32_t PGRouteHop(STL_LID olid, NodeData *nodep, STL_LID dlid,
 		if ((dlid & mask) != (nportp->PortInfo.LID & mask)) {
 			switch(format) {
 			case FORMAT_XML:
-				printf("%*s<ARError Value=\"BadTermination\">\n",indent,"");
-				XmlPrintDec("SLID",olid,indent+4);
-				XmlPrintDec("DLID",dlid,indent+4);
+				printf("%*s<ARError Value=\"BadTermination\">\n",indent+4,"");
+				XmlPrintDec("SLID",olid,indent+8);
+				XmlPrintDec("DLID",dlid,indent+8);
 				break;
 			default:
 				printf("%*sERROR: Path from 0x%x to 0x%x terminates at the wrong "
@@ -7711,9 +7896,9 @@ static int32_t PGRouteHop(STL_LID olid, NodeData *nodep, STL_LID dlid,
 		} else if (pg != 0xff) {
 			switch(format) {
 			case FORMAT_XML:
-				printf("%*s<ARError Value=\"BadMembership\">\n",indent,"");
-				XmlPrintDec("SLID",olid,indent+4);
-				XmlPrintDec("DLID",dlid,indent+4);
+				printf("%*s<ARError Value=\"BadMembership\">\n",indent+4,"");
+				XmlPrintDec("SLID",olid,indent+8);
+				XmlPrintDec("DLID",dlid,indent+8);
 				break;
 			default:
 				printf("%*sERROR: LFT Path from 0x%x to 0x%x terminates but is also "
@@ -7764,9 +7949,9 @@ static int32_t PGRouteHop(STL_LID olid, NodeData *nodep, STL_LID dlid,
 				if ((dlid & mask) != (nportp->PortInfo.LID & mask)) {
 					switch(format) {
 					case FORMAT_XML:
-						printf("%*s<ARError Value=\"BadTermination\">\n",indent,"");
-						XmlPrintDec("SLID",olid,indent+4);
-						XmlPrintDec("DLID",dlid,indent+4);
+						printf("%*s<ARError Value=\"BadTermination\">\n",indent+4,"");
+						XmlPrintDec("SLID",olid,indent+8);
+						XmlPrintDec("DLID",dlid,indent+8);
 						break;
 					default:
 						printf("%*sERROR: AR Path from 0x%x to 0x%x terminates at the "
@@ -7778,9 +7963,9 @@ static int32_t PGRouteHop(STL_LID olid, NodeData *nodep, STL_LID dlid,
 					// a problem.
 					switch(format) {
 					case FORMAT_XML:
-						printf("%*s<ARError Value=\"BadMembership\">\n",indent,"");
-						XmlPrintDec("SLID",olid,indent+4);
-						XmlPrintDec("DLID",dlid,indent+4);
+						printf("%*s<ARError Value=\"BadMembership\">\n",indent+4,"");
+						XmlPrintDec("SLID",olid,indent+8);
+						XmlPrintDec("DLID",dlid,indent+8);
 						break;
 					default:
 						printf("%*sERROR: AR Path from 0x%x to 0x%x terminates but LFT "
@@ -7808,11 +7993,11 @@ static int32_t PGRouteHop(STL_LID olid, NodeData *nodep, STL_LID dlid,
 				// the linear path. Either way, that's a problem.
 				switch(format) {
 				case FORMAT_XML:
-					printf("%*s<ARError Value=\"InconsistentHopCount\">\n",indent,"");
-					XmlPrintDec("SLID",olid,indent+4);
-					XmlPrintDec("DLID",dlid,indent+4);
-					XmlPrintDec("PL1",pl1-1,indent+4);
-					XmlPrintDec("PL2",pl2-1,indent+4);
+					printf("%*s<ARError Value=\"InconsistentHopCount\">\n",indent+4,"");
+					XmlPrintDec("SLID",olid,indent+8);
+					XmlPrintDec("DLID",dlid,indent+8);
+					XmlPrintDec("PL1",pl1-1,indent+8);
+					XmlPrintDec("PL2",pl2-1,indent+8);
 					break;
 				default:
 					printf("%*sERROR: Paths from 0x%016"PRIx64", (LID 0x%x)"
@@ -7905,7 +8090,7 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 		assert(switchp);
 
 		nodep->context = MemoryAllocate2AndClear(
-			switchp->SwitchInfoData.LinearFDBTop,
+			switchp->SwitchInfoData.LinearFDBTop+1,
 			IBA_MEM_FLAG_PREMPTABLE, MYTAG);
 
 		assert(nodep->context);
@@ -8009,7 +8194,7 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 
 			if (nodep->pSwitchInfo && 
 				nodep->pSwitchInfo->SwitchInfoData.LinearFDBTop != 0) {
-				lidCount = nodep->pSwitchInfo->SwitchInfoData.LinearFDBTop;
+				lidCount = nodep->pSwitchInfo->SwitchInfoData.LinearFDBTop+1;
 			} else {
 				lidCount = switchp->LinearFDBSize;
 			}
@@ -8025,11 +8210,10 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 					break;
 				}
 			}
-
 			// Check all DLIDs, even the unused ones.
 			for(dlid = 1; dlid < lidCount; dlid++) {
 				uint8_t ep = STL_LFT_PORT_BLOCK(switchp->LinearFDB,dlid); 
-				uint8_t pg = STL_PGFT_PORT_BLOCK(switchp->PortGroupFDB,dlid); 
+				uint8_t pg; 
 				NodeData *nnodep;
 				PortData *nportp;
 				int32_t pl1, pl2;
@@ -8037,7 +8221,11 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 
 				arOkay = 1;
 				arCount = 0;
-	
+
+				if (dlid >= switchp->PortGroupFDBSize) 
+					pg = 0xff;
+				else
+					pg = STL_PGFT_PORT_BLOCK(switchp->PortGroupFDB,dlid); 
 				//
 				// Make sure the switch correctly routes to itself.
 				// LFT[dlid] should be zero and PGFT[dlid] should be 0xff.
@@ -8046,7 +8234,7 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 					if (ep != 0) switch (format) {
 					case FORMAT_XML:
 						printf("%*s<ARError Value=\"Port0Error\" />\n",
-							indent,"");
+							indent+4,"");
 						break;
 					default:
 						printf("%*sERROR: Switch cannot route to itself.\n",
@@ -8056,7 +8244,7 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 					if (pg != 0xff) switch (format) {
 					case FORMAT_XML:
 						printf("%*s<ARError Value=\"Port0ARError\" />\n",
-							indent,"");
+							indent+4,"");
 						break;
 					default:
 						printf("%*sERROR: Switch is in its own port group "
@@ -8073,15 +8261,28 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 					if (pg != 0xff) switch (format) {
 					case FORMAT_XML:
 						printf("%*s<ARError Value=\"BadDLID\" />\n",
-							indent,"");
+							indent+4,"");
 						break;
 					default:
 						printf("%*sERROR: LID 0x%x is in the PGFT but not the LFT.\n",
 							indent, "", dlid);
 					}
 					continue; // dlid is not in use.
-				} else if (ep == 0) {
+				} else if (ep == 0)
 					continue; // FIXME MWHEINZ extra LID going to management card? LMC?
+				else {
+					if (dlid >= switchp->PortGroupFDBSize) {
+						switch (format) {
+						case FORMAT_XML:
+							printf("%*s<ARError Value=\"BadDLID\" />\n",
+							indent+4,"");
+							break;
+						default:
+							printf("%*sERROR: LID 0x%x is in the LFT but not the PGFT.\n",
+							indent, "", dlid);
+						}		
+						continue;
+					} 
 				}
 
 				// Find our LFT neighbor node.
@@ -8102,9 +8303,9 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 						switch(format) {
 						case FORMAT_XML:
 							printf("%*s<ARError Value=\"BadTermination\">\n",
-								indent,"");
-							XmlPrintDec("DLID",dlid,indent+4);
-							printf("%*s</ARError>\n",indent,"");
+								indent+4,"");
+							XmlPrintDec("DLID",dlid,indent+8);
+							printf("%*s</ARError>\n",indent+4,"");
 							break;
 						default:
 							printf("%*sPath to 0x%x terminates at the "
@@ -8114,9 +8315,10 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 					} else if (pg != 0xff) {
 						switch(format) {
 						case FORMAT_XML:
-							printf("%*s<ARError Value=\"BadMembership\">\n",indent,"");
-							XmlPrintDec("SLID",slid,indent+4);
-							XmlPrintDec("DLID",dlid,indent+4);
+							printf("%*s<ARError Value=\"BadMembership\">\n",indent+4,"");
+							XmlPrintDec("SLID",slid,indent+8);
+							XmlPrintDec("DLID",dlid,indent+8);
+							printf("%*s</ARError>\n",indent+4,"");
 							break;
 						default:
 							printf("%*sERROR: LFT path from 0x%x to 0x%x terminates but is also "
@@ -8134,7 +8336,7 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 					pl1 = PGRouteHop(slid, nnodep, dlid, 0, MAX_HOPS, 1, format, indent);
 					if (pl1 < 0) {
 						if (format==FORMAT_XML) {
-							printf("%*s</ARError>\n",indent,"");
+							printf("%*s</ARError>\n",indent+4,"");
 						}
 						continue; 
 					}
@@ -8159,9 +8361,9 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 								if ((dlid & mask) != (nportp->PortInfo.LID & mask)) switch(format) {
 								case FORMAT_XML:
 									printf("%*s<ARError Value=\"BadTermination\">\n",
-										indent,"");
-									XmlPrintDec("DLID",dlid,indent+4);
-									printf("%*s</ARError>\n",indent,"");
+										indent+4,"");
+									XmlPrintDec("DLID",dlid,indent+8);
+									printf("%*s</ARError>\n",indent+4,"");
 									break;
 								default:
 									printf("%*sERROR: AR Path from 0x%x to 0x%x "
@@ -8172,9 +8374,10 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 									// a problem.
 									switch(format) {
 									case FORMAT_XML:
-										printf("%*s<ARError Value=\"BadMembership\">\n",indent,"");
-										XmlPrintDec("SLID",slid,indent+4);
-										XmlPrintDec("DLID",dlid,indent+4);
+										printf("%*s<ARError Value=\"BadMembership\">\n",indent+4,"");
+										XmlPrintDec("SLID",slid,indent+8);
+										XmlPrintDec("DLID",dlid,indent+8);
+										printf("%*s</ARError>\n",indent+4,"");
 										break;
 									default:
 										printf("%*sERROR: AR Path from 0x%x to 0x%x terminates but LFT "
@@ -8196,7 +8399,7 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 									format, indent);
 								// PGRouteHop detected an error.
 								if (format==FORMAT_XML) {
-									printf("%*s</ARError>\n",indent,"");
+									printf("%*s</ARError>\n",indent+4,"");
 								}
 								break; // stop looking...
 							} else if (pl2 != pl1) {
@@ -8205,11 +8408,11 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 								switch(format) {
 								case FORMAT_XML:
 									printf("%*s<ARError Value=\"InconsistentHopCount\">\n",
-										indent,"");
-									XmlPrintDec("SLID",slid,indent+4);
-									XmlPrintDec("DLID",dlid,indent+4);
-									XmlPrintDec("PL1",pl1-1,indent+4);
-									XmlPrintDec("PL2",pl2-1,indent+4);
+										indent+4,"");
+									XmlPrintDec("SLID",slid,indent+8);
+									XmlPrintDec("DLID",dlid,indent+8);
+									XmlPrintDec("PL1",pl1-1,indent+8);
+									XmlPrintDec("PL2",pl2-1,indent+8);
 									break;
 								default:
 									printf("%*sERROR: Paths from 0x%016"PRIx64", (LID 0x%x)"
@@ -8263,8 +8466,8 @@ void ShowValidatePGReport(Format_t format, int indent, int detail)
 
 	switch (format) {
 	case FORMAT_XML:
-		XmlPrintDec("RoutesTested",routeCount,indent+4);
-		printf("%*s</ValidatePortGroups>\n", indent, "");
+		XmlPrintDec("RoutesTested",routeCount,indent);
+		printf("%*s</ValidatePortGroups>\n", indent-4, "");
 		break;
 	default:
 		printf("%*sAlternate Routes Tested: %d\n", indent, "", routeCount);
@@ -8676,14 +8879,17 @@ void ShowPortUsageReport(Point *focus, Format_t format, int indent, int detail)
 				pMap_2 = cl_qmap_next(pMap_2) ) {
 			portp = PARENT_STRUCT(pMap_2, PortData, NodePortsEntry);
 
-			if ( portp->PortInfo.LID &&
+			if ((nodep->NodeInfo.NodeType == STL_NODE_FI) || 
+				((nodep->NodeInfo.NodeType == STL_NODE_SW) && (portp->PortNum ==0))) {
+				if ( portp->PortInfo.LID &&
 					(portp->PortInfo.LID <= g_max_lft) ) {
-				for ( ix_lmc = (1 << portp->PortInfo.s1.LMC) - 1;
-						ix_lmc >= 0; ix_lmc-- )
-					tb_nodeData[portp->PortInfo.LID + ix_lmc] =
-						(ix_lmc << 8) + nodep->NodeInfo.NodeType;
-			}
-
+					for ( ix_lmc = (1 << portp->PortInfo.s1.LMC) - 1;
+						ix_lmc >= 0; ix_lmc-- ) {
+						tb_nodeData[portp->PortInfo.LID + ix_lmc] =
+							(ix_lmc << 8) + nodep->NodeInfo.NodeType;
+					}		
+				}
+			} 
 		}	// End of for ( pMap_2=cl_qmap_head(&nodep->Ports)
 
 	}	// End of for ( pMap=cl_qmap_head(&g_Fabric.AllNodes)
@@ -8985,7 +9191,8 @@ void ShowPathUsageReport(Point *focus, Format_t format, int indent, int detail)
 		}
 		return;
 	}
-	status = TabulateCARoutes(&g_Fabric, &totalPaths, &badPaths, FALSE);
+	/* If there is a node pair list or node list then only tabulate routes in the focus */
+	status = TabulateCARoutes(&g_Fabric, focus, &totalPaths, &badPaths, FALSE);
 	if (status != FSUCCESS) {
 		fprintf(stderr, "opareport: -o pathusage: Unable to tabulate routes (status=0x%x): %s\n", status, iba_fstatus_msg(status));
 		g_exitstatus = 1;
@@ -9032,11 +9239,15 @@ void ShowPathUsageReport(Point *focus, Format_t format, int indent, int detail)
 		nodep = QListObj(pList);
 		switchp = nodep->switchp;
 
-		if (! CompareNodePoint(nodep, focus))
-			continue;
-
 		if (!switchp || !switchp->LinearFDB)
 			continue;
+
+		//If haveSW flag is set, then Switches are present in the focus
+		if(PointHaveSw(focus)) {
+			// filter on switches that are listed in the focus
+			if( ! CompareNodePoint(nodep, focus))
+				continue;
+		}
 
 		if (detail) {
 			switch (format) {
@@ -9081,9 +9292,6 @@ void ShowPathUsageReport(Point *focus, Format_t format, int indent, int detail)
 			// only report on ISLs,  FI-SW links are boring
 			if (! portp->neighbor
 				|| portp->neighbor->nodep->NodeInfo.NodeType != STL_NODE_SW)
-				continue;
-
-			if (! ComparePortPoint(portp, focus))
 				continue;
 
 			totalPorts++;
@@ -9289,7 +9497,8 @@ void ShowTreePathUsageReport(Point *focus, Format_t format, int indent,
 		}
 		return;
 	}
-	status = TabulateCARoutes(&g_Fabric, &totalPaths, &badPaths, TRUE);
+	/* If there is a focus then only tabulate routes in the focus */
+	status = TabulateCARoutes(&g_Fabric, focus, &totalPaths, &badPaths, TRUE);
 	if (status != FSUCCESS) {
 		fprintf(stderr, "opareport: -o treepathusage: Unable to tabulate routes (status=0x%x): %s\n", status, iba_fstatus_msg(status));
 		g_exitstatus = 1;
@@ -9337,11 +9546,15 @@ void ShowTreePathUsageReport(Point *focus, Format_t format, int indent,
 		nodep = QListObj(pList);
 		switchp = nodep->switchp;
 
-		if (! CompareNodePoint(nodep, focus))
-			continue;
-
 		if (!switchp || !switchp->LinearFDB)
 			continue;
+
+		//If haveSW flag is set, then Switches are present in the focus
+		if(PointHaveSw(focus)) {
+			// filter on switches that are listed in the focus
+			if( ! CompareNodePoint(nodep, focus))
+				continue;
+		}
 
 		if (detail) {
 			switch (format) {
@@ -9388,9 +9601,6 @@ void ShowTreePathUsageReport(Point *focus, Format_t format, int indent,
 			// only report on ISLs,  FI-SW links are boring
 			if (! portp->neighbor
 				|| portp->neighbor->nodep->NodeInfo.NodeType != STL_NODE_SW)
-				continue;
-
-			if (! ComparePortPoint(portp, focus))
 				continue;
 
 			totalPorts++;
@@ -9673,13 +9883,16 @@ void PrintMCRouteMembers(McNodeLoopInc *LoopIncp, void *context)
 
 	switch (MCRoutesContext->format) {
 	case FORMAT_TEXT:
-		printf("0x%016"PRIx64"\t%s\t%.*s\t%3u\t%3u\n",
+		printf("0x%016"PRIx64"\t%s\t%.*s\t%3u\t",
 			LoopIncp->pPort->nodep->NodeInfo.NodeGUID,
 			StlNodeTypeToText(LoopIncp->pPort->nodep->NodeInfo.NodeType),
 			NODE_DESCRIPTION_ARRAY_SIZE,
 			g_noname?g_name_marker:(char*)LoopIncp->pPort->nodep->NodeDesc.NodeString,
-			LoopIncp->entryPort,
-			LoopIncp->exitPort);
+			LoopIncp->entryPort);
+		if(LoopIncp->exitPort != 0)
+			printf("%3u\n",LoopIncp->exitPort);
+		else
+			printf("-\n");
 
 		break;
 	case FORMAT_XML:
@@ -9693,7 +9906,8 @@ void PrintMCRouteMembers(McNodeLoopInc *LoopIncp, void *context)
 				indent+8);
 		XmlPrintNodeDesc((char*)LoopIncp->pPort->nodep->NodeDesc.NodeString, indent+8);
 		XmlPrintDec("EntryPort", LoopIncp->entryPort, indent+8);
-		XmlPrintDec("ExitPort", LoopIncp->exitPort, indent+8);
+		if(LoopIncp->exitPort != 0)
+			XmlPrintDec("ExitPort", LoopIncp->exitPort, indent+8);
 		printf("%*s</Port>\n", indent+4, "");
 		break;
 	default:
@@ -9908,7 +10122,7 @@ void ShowValidateRoutesReport(Format_t format, int indent, int detail)
 	}
 
 	ValidateRoutesContext.indent = indent;
-	status = ValidateAllRoutes(&g_Fabric, g_portGuid, &totalPaths, &badPaths,
+	status = ValidateAllRoutes(&g_Fabric, g_portGuid, (uint8)g_rc, &totalPaths, &badPaths,
 					ValidateRouteCallback, &ValidateRoutesContext,
 					detail >=2 ?ValidateRouteCallback2:NULL,
 					&ValidateRoutesContext, ((g_Fabric.flags & FF_QOSDATA) && g_use_scsc));
@@ -10156,7 +10370,7 @@ void ShowValidateCreditLoopsReport(Format_t format, int indent, int detail)
    
    ValidateCreditLoopRoutesContext.indent = indent; 
    ValidateCreditLoopRoutesContext.quiet = g_quiet; 
-   status = ValidateAllCreditLoopRoutes(&g_Fabric, g_portGuid, 
+   status = ValidateAllCreditLoopRoutes(&g_Fabric, g_portGuid, (uint8)g_rc,  
                                         ValidateCLRouteCallback,
                                         ValidateCLFabricSummaryCallback,
                                         ValidateCLDataSummaryCallback,
@@ -10370,11 +10584,12 @@ void ShowVFInfoReport(Point *focus, Format_t format, int indent, int detail)
 				if (pR->slMulticastSpecified)
 					XmlPrintDec("MulticastSL", pR->slMulticast, indent);
 
-				printf( "%*s<Select>%s%s</Select>\n", indent, "",
-					(pR->s1.selectFlags & STL_VFINFO_REC_SEL_PKEY_QUERY) ? "PKEY " : "",
-					(pR->s1.selectFlags & STL_VFINFO_REC_SEL_SL_QUERY) ? "SL " : "" );
-				XmlPrintHex8("Select_Hex", pR->s1.selectFlags, indent);
 				if (detail >1) {
+					printf( "%*s<Select>%s%s</Select>\n", indent, "",
+						(pR->s1.selectFlags & STL_VFINFO_REC_SEL_PKEY_QUERY) ? "PKEY " : "",
+						(pR->s1.selectFlags & STL_VFINFO_REC_SEL_SL_QUERY) ? "SL " : "" );
+					XmlPrintHex8("Select_Hex", pR->s1.selectFlags, indent);
+
 					// get the value of Packet Lifetime Multiplier
 					snprintf(buf, sizeof(buf), "%d", 1<<pR->s1.pktLifeTimeInc);
 					XmlPrintStr( "PktLifeTimeMult",
@@ -10507,16 +10722,17 @@ void ShowBCTForPortText(PortData *port, Format_t format, int indent, int detail)
 		printf("%*sOverallBufferSpace   (AU/B):  %6u/%8u\n", indent, "",
 				remLim, remLim * bytesPerAU);
 
+	uint16_t bufferDepth = (port->PortInfo.ReplayDepthH.BufferDepthH << 8) | port->PortInfo.ReplayDepth.BufferDepth;
 	printf("%*sTx Buffer Depth     (LTP/B):  %6u/%8u\n", indent, "",
-			port->PortInfo.ReplayDepth.BufferDepth,
-			port->PortInfo.ReplayDepth.BufferDepth * BYTES_PER_LTP);
+			bufferDepth, bufferDepth * BYTES_PER_LTP);
 
-	if (!g_persist && !g_hard)
+	if (!g_persist && !g_hard) {
+		uint16_t wireDepth = (port->PortInfo.ReplayDepthH.WireDepthH << 8) | port->PortInfo.ReplayDepth.WireDepth;
 		printf("%*sWire Depth          (LTP/B):  %6u/%8u\n", indent, "",
-				port->PortInfo.ReplayDepth.WireDepth,
-				port->PortInfo.ReplayDepth.WireDepth * BYTES_PER_LTP);
-	else
+				wireDepth, wireDepth * BYTES_PER_LTP);
+	} else {
 		printf("%*sWire Depth          (LTP/B):  xxxxxx/xxxxxxxx\n", indent, "");
+	}
 
 	printf("%*sTxOverallSharedLimit (AU/B):  %6u/", indent, "",
 			port->pBufCtrlTable->TxOverallSharedLimit);
@@ -10577,16 +10793,18 @@ void ShowBCTForPortXML(PortData *port, Format_t format, int indent, int detail)
 
 	indent += 4;
 
+	uint16_t bufferDepth = (port->PortInfo.ReplayDepthH.BufferDepthH << 8) | port->PortInfo.ReplayDepth.BufferDepth;
 	printf("%*s<ReplayDepthBufferDepth>%u</ReplayDepthBufferDepth>\n", indent, "",
-			port->PortInfo.ReplayDepth.BufferDepth);
+			bufferDepth);
 	printf("%*s<ReplayDepthBufferDepthBytes>%u</ReplayDepthBufferDepthBytes>\n", indent, "",
-			port->PortInfo.ReplayDepth.BufferDepth * BYTES_PER_LTP);
+			bufferDepth * BYTES_PER_LTP);
 
 	if (!g_persist && !g_hard) {
+		uint16_t wireDepth = (port->PortInfo.ReplayDepthH.WireDepthH << 8) | port->PortInfo.ReplayDepth.WireDepth;
 		printf("%*s<ReplayDepthWireDepth>%u</ReplayDepthWireDepth>\n", indent, "",
-				port->PortInfo.ReplayDepth.WireDepth);
+				wireDepth);
 		printf("%*s<ReplayDepthWireDepthBytes>%u</ReplayDepthWireDepthBytes>\n", indent, "",
-				port->PortInfo.ReplayDepth.WireDepth * BYTES_PER_LTP);
+				wireDepth * BYTES_PER_LTP);
 	}
 
 	if (bytesPerAU) {
@@ -10904,7 +11122,7 @@ void CheckVFAllocation(PortData *port, int indent, int format, int detail)
 		}
 	}
 
-	if (port->neighbor) {
+	if (port->neighbor && port->neighbor->pQOS) {
 		// check that SCVLt matches SCVLnt of the neighbor
 		for (sc=0; sc<STL_MAX_VLS; sc++) {
 			int vl1 = port->pQOS->SC2VLMaps[Enum_SCVLt].SCVLMap[sc].VL;
@@ -11272,6 +11490,7 @@ void ShowQuarantineNodeReport(Point *focus, Format_t format, int indent, int det
 	struct omgt_params params = {.debug_file = g_verbose > 2 ? stdout : NULL};
 	if(omgt_open_port_by_guid(&omgt_port_session, g_portGuid, &params) != FSUCCESS)
 		return;
+	omgt_set_timeout(omgt_port_session, g_ms_timeout);
 	if ( !(( pQueryResults =
 			GetAllQuarantinedNodes(omgt_port_session, &g_Fabric, focus, g_quiet) )) )
 		return;
@@ -11309,7 +11528,7 @@ void ShowQuarantineNodeReport(Point *focus, Format_t format, int indent, int det
 		case FORMAT_XML:
 			printf("%*s<QNode>\n", indent, "");
 			indent += 4;
-			XmlPrintHex64("TrustedNodeGUID", pR->trustedNeighborNodeGUID, indent);
+			XmlPrintHex64("TrustedNodeGUID", pR->trustedNodeGUID, indent);
 			XmlPrintDec("TrustedPortNum", pR->trustedPortNum, indent);
 			XmlPrintLID("TrustedLID", pR->trustedLid, indent);
 			XmlPrintHex64("NodeGUID", pR->NodeInfo.NodeGUID, indent);
@@ -11430,6 +11649,7 @@ void ShowDGMemberReport(Point *focus, Format_t format, int indent, int detail)
 	struct omgt_params params = {.debug_file = g_verbose > 2 ? stdout : NULL};
 	if(omgt_open_port_by_guid(&omgt_port_session, g_portGuid, &params) != FSUCCESS)
 		return;
+	omgt_set_timeout(omgt_port_session, g_ms_timeout);
 	if ( !(( pQueryResults =
 			GetAllDeviceGroupMemberRecords(omgt_port_session, &g_Fabric, focus, g_quiet) )) )
 		return;
@@ -11524,6 +11744,232 @@ void ShowDGMemberReport(Point *focus, Format_t format, int indent, int detail)
 		omgt_close_port(omgt_port_session);
 }
 
+// CableInfo is organized in 128-byte pages but is stored in 64-byte half-pages
+// STL_CABLE_INFO_UP0_DD/STL_CABLE_INFO_STD use STL_CIB_STD_HIGH_PAGE_ADDR to
+// STL_CIB_STD_END_ADDR inclusive (128-255). STL_CABLE_INFO_LOW0_STD/STL_CABLE_INFO_LOW0_DD
+// use  STL_CIB_STD_LOW_PAGE_ADDR to 127.
+FSTATUS ShowPortCableHealth(PortData *portp, int indent, char *buf, uint16 length ){
+	boolean qsfp_dd;
+	PrintDest_t destBuf;
+	CableTypeInfoType cableTypeInfo;
+	boolean cableLenValid;									// Copper cable length valid
+	float rx_1, rx_2, rx_3, rx_4;							// rx average optical power for lanes
+	float tx_1, tx_2, tx_3, tx_4;							// tx average optical power for lanes
+	float temperature, voltage;
+	char tempStr[STL_CIB_STD_MAX_STRING + 1] = {'\0'};
+
+	// check input parameters
+	if (!portp)
+		return FINVALID_PARAMETER;
+
+	//Initialize the buffer to store cable info per port
+	PrintDestInitBuffer(&destBuf, buf, length);
+
+	PrintFunc(&destBuf,"%*s%s;%d;0x%016"PRIx64";",
+		indent,
+		"",
+		portp->nodep->NodeDesc.NodeString,
+		portp->nodep->NodeInfo.NodeType,
+		portp->nodep->NodeInfo.NodeGUID);
+
+	// LID is displayed as xxx when persist or hard flag is set
+	if (g_persist || g_hard){
+		PrintFunc(&destBuf,"xxxxxxxx;%3u;",portp->PortNum);
+	} else {
+		PrintFunc(&destBuf,"0x%x;%3u;",
+			portp->EndPortLID, portp->PortNum);
+	}
+
+	//check if cabledata exists
+	if (!portp->pCableInfoData){
+		PrintFunc(&destBuf,"NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;NA;");
+		return FSUCCESS;
+	}
+
+	//Check for port type
+	if (STL_PORT_TYPE_STANDARD != portp->PortInfo.PortPhysConfig.s.PortType){
+		fprintf(stderr, "ShowPortCableHealth: Not a standard port\n");
+		return FUNAVAILABLE;
+	}
+
+	//Get cable type
+	qsfp_dd = (*(portp->pCableInfoData) == STL_CIB_STD_QSFP_DD);
+
+	//Handle DD cable info
+	if (qsfp_dd) {
+		//Handle data in Low Address page
+		STL_CABLE_INFO_LOW0_DD *pCableData = (STL_CABLE_INFO_LOW0_DD*)(portp->pCableInfoData + STL_CIB_STD_LOW_PAGE_ADDR);
+		//Access temperature and voltage
+		temperature = ntoh16(pCableData->temperature)/256.0;
+		voltage = ntoh16(pCableData->voltage)/10000.0;
+		PrintFunc(&destBuf,"%.2f;%.2f;",temperature, voltage);
+
+		//Rx and Tx data in High Address page 17 is not accessible so displayed as "NA"
+		PrintFunc(&destBuf,"NA;NA;NA;NA;NA;NA;NA;NA;");
+
+		//Handle Data in High address page 0
+		STL_CABLE_INFO_UP0_DD *pCableInfo = (STL_CABLE_INFO_UP0_DD *)(portp->pCableInfoData + STL_CIB_STD_HIGH_PAGE_ADDR);
+		StlCableInfoDecodeCableType(pCableInfo->cable_type, pCableInfo->connector, pCableInfo->ident, &cableTypeInfo);
+		cableLenValid = cableTypeInfo.cableLengthValid;
+		StlCableInfoDDCableLengthToText(pCableInfo->cableLengthEnc, cableLenValid, MAX_CABLE_LENGTH_STR_LEN, tempStr);
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		memcpy(tempStr, (char *)pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+		StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		memcpy(tempStr, (char *)pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+		StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		memcpy(tempStr, (char *)pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+		StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		StlCableInfoDateCodeToText(pCableInfo->date_code, tempStr);
+		PrintFunc(&destBuf, "%s;", tempStr);
+	//Handle cable info based on SFF-8636 Rev 2-5
+	}else {
+		//Handle data in Low Address page
+		STL_CABLE_INFO_LOW0_STD *pCableData = (STL_CABLE_INFO_LOW0_STD*)(portp->pCableInfoData + STL_CIB_STD_LOW_PAGE_ADDR);
+		//Access temperature and voltage
+		temperature = ntoh16(pCableData->temperature)/256.0;
+		voltage = ntoh16(pCableData->voltage)/10000.0;
+		PrintFunc(&destBuf,"%.2f;%.2f;",temperature, voltage);
+
+		//RX average optical power is stored in 2bytes, total of 8 bytes for RX_1, RX_2, RX_3, RX_4
+		rx_1 = ntoh16(pCableData->rxOpticalPwr1)/10000.0;
+		rx_2 = ntoh16(pCableData->rxOpticalPwr2)/10000.0;
+		rx_3 = ntoh16(pCableData->rxOpticalPwr3)/10000.0;
+		rx_4 = ntoh16(pCableData->rxOpticalPwr4)/10000.0;
+		//TX average optical power is stored in 2bytes, total of 8 bytes for TX_1, TX_2, TX_3, TX_4
+		tx_1 = ntoh16(pCableData->txOpticalPwr1)/10000.0;
+		tx_2 = ntoh16(pCableData->txOpticalPwr2)/10000.0;
+		tx_3 = ntoh16(pCableData->txOpticalPwr3)/10000.0;
+		tx_4 = ntoh16(pCableData->txOpticalPwr4)/10000.0;
+
+		PrintFunc(&destBuf,"%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;%.2f;",
+			rx_1, rx_2, rx_3, rx_4, tx_1, tx_2, tx_3, tx_4 );
+
+		//Handle Data in High address page 0
+		STL_CABLE_INFO_STD *pCableInfo = (STL_CABLE_INFO_STD *)(portp->pCableInfoData + STL_CIB_STD_HIGH_PAGE_ADDR);
+		StlCableInfoDecodeCableType(pCableInfo->dev_tech.s.xmit_tech, pCableInfo->connector, pCableInfo->ident, &cableTypeInfo);
+		cableLenValid = cableTypeInfo.cableLengthValid;
+		StlCableInfoOM4LengthToText(pCableInfo->len_om4, cableLenValid, MAX_CABLE_LENGTH_STR_LEN, tempStr);
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		memcpy(tempStr, (char *)pCableInfo->vendor_name, sizeof(pCableInfo->vendor_name));
+		StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_name));
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		memcpy(tempStr, (char *)pCableInfo->vendor_pn, sizeof(pCableInfo->vendor_pn));
+		StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_pn));
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		memcpy(tempStr, (char *)pCableInfo->vendor_sn, sizeof(pCableInfo->vendor_sn));
+		StlCableInfoTrimTrailingWS(tempStr, sizeof(pCableInfo->vendor_sn));
+		PrintFunc(&destBuf, "%s;", tempStr);
+
+		memset(tempStr, 0, STL_CIB_STD_MAX_STRING + 1);
+		StlCableInfoDateCodeToText(pCableInfo->date_code, tempStr);
+		PrintFunc(&destBuf, "%s;", tempStr);
+	}
+
+	return FSUCCESS;
+}
+
+//Cable health Data length per port
+#define STL_CABLEHEALTH_DATA_LENGTH_PER_PORT 256
+
+//Cable Health Report Header string
+#define STL_CABLEHEALTH_HEADER_STRING \
+"Pri Node Name;"            "Pri Node Type;"            "Pri Node GUID;"\
+"Pri LID;"                  "Pri PortNum;"              "Pri Temperature;"\
+"Pri Voltage;"              "Pri RX_1;"                 "Pri RX_2;"\
+"Pri RX_3;"                 "Pri RX_4;"                 "Pri TX_1;"\
+"Pri TX_2;"                 "Pri TX_3;"                 "Pri TX_4;"\
+"Pri Cable Length;"         "Pri Vendor Name;"          "Pri Vendor PartNumber;"\
+"Pri Vendor SerialNumber;"  "Pri Vendor Manufacture Date;"\
+"Sec Node Name;"            "Sec Node Type;"            "Sec Node GUID;"\
+"Sec LID;"                  "Sec PortNum;"              "Sec Temperature;"\
+"Sec Voltage;"              "Sec RX_1;"                 "Sec RX_2;"\
+"Sec RX_3;"                 "Sec RX_4;"                 "Sec TX_1;"\
+"Sec TX_2;"                 "Sec TX_3;"                 "Sec TX_4;"\
+"Sec Cable Length;"         "Sec Vendor Name;"          "Sec Vendor PartNumber;"\
+"Sec Vendor SerialNumber;"  "Sec Vendor Manufacture Date;"
+
+#define CABLEHEALTH_EMPTY_FIELD ";;;;;;;;;;;;;;;"
+
+
+void ShowCableHealthReport(Point *focus, Format_t format, int indent, int detail)
+{
+	LIST_ITEM *p;
+	char tempBuf1[STL_CABLEHEALTH_DATA_LENGTH_PER_PORT];
+	char tempBuf2[STL_CABLEHEALTH_DATA_LENGTH_PER_PORT];
+	boolean first_entry = 1;
+	FSTATUS status1 = FERROR;
+	FSTATUS status2 = FERROR;
+	PrintDest_t destFile;
+
+	PrintDestInitFile(&destFile, stdout);
+
+	ShowPointFocus(focus, FIND_FLAG_FABRIC, format, indent, detail);
+
+	for (p=QListHead(&g_Fabric.AllPorts); p != NULL; p = QListNext(&g_Fabric.AllPorts, p)) {
+		PortData *portp1, *portp2;
+		portp1 = (PortData *)QListObj(p);
+
+		// skip backplane (ISL) ports
+		if(isInternalLink(portp1))
+			continue;
+
+		// to avoid duplicated processing, only process "from" ports in link
+		if (!portp1->from)
+			continue;
+
+		if (! ComparePortPoint(portp1, focus) && ! ComparePortPoint(portp1->neighbor, focus))
+			continue;
+
+		//Get Cable Health report for from-port
+		memset(tempBuf1, 0, STL_CABLEHEALTH_DATA_LENGTH_PER_PORT);
+		status1 = ShowPortCableHealth(portp1, indent, tempBuf1, STL_CABLEHEALTH_DATA_LENGTH_PER_PORT);
+
+		// get port on the other side
+		portp2 = portp1->neighbor;
+
+		if(portp2) {
+			//Get Cable Health report for to-port
+			memset(tempBuf2, 0, STL_CABLEHEALTH_DATA_LENGTH_PER_PORT);
+			status2 = ShowPortCableHealth(portp2, indent, tempBuf2, STL_CABLEHEALTH_DATA_LENGTH_PER_PORT);
+		}
+
+		if((FSUCCESS == status1)|| (FSUCCESS == status2)) {
+			//show header once
+			if(first_entry ){
+				PrintFunc(&destFile, "%s\n", "Cable Health Report");
+				PrintFunc(&destFile, "%s\n", STL_CABLEHEALTH_HEADER_STRING);
+				first_entry = 0;
+			}
+
+			PrintFunc(&destFile, "%s%s\n",
+				(FSUCCESS == status1)?tempBuf1:
+					strncat(tempBuf1,CABLEHEALTH_EMPTY_FIELD,strlen(CABLEHEALTH_EMPTY_FIELD) + 1),
+				(FSUCCESS == status2)?tempBuf2:
+					strncat(tempBuf2,CABLEHEALTH_EMPTY_FIELD,strlen(CABLEHEALTH_EMPTY_FIELD) + 1));
+		}
+	}
+
+	if(first_entry)
+		fprintf(stderr, "No Cable Health Records Returned\n");
+}
+
 // command line options, each has a short and long flag name
 struct option options[] = {
 		// basic controls
@@ -11556,6 +12002,8 @@ struct option options[] = {
 		{ "allports", no_argument, NULL, 'A' },
 		{ "begin", required_argument, NULL, 'b'},
 		{ "end", required_argument, NULL, 'e'},
+		{ "rc", required_argument, NULL, 'z' },
+		{ "timeout", required_argument, NULL, '!' },
 		{ "help", no_argument, NULL, '$' },	// use an invalid option character
 
 		{ 0 }
@@ -11577,6 +12025,7 @@ void Usage_full(void)
 	fprintf(stderr, "                                system wide port num (default is 0)\n");
 	fprintf(stderr, "    -p/--port port            - port, numbered 1..n, 0=1st active\n");
 	fprintf(stderr, "                                (default is 1st active)\n");
+	fprintf(stderr, "    --timeout                 - timeout(wait time for response) in ms, default is 1000ms\n");
 	fprintf(stderr, "    -o/--output report        - report type for output\n");
 	fprintf(stderr, "    -d/--detail level         - level of detail 0-n for output, default is 2\n");
 	fprintf(stderr, "    -P/--persist              - only include data persistent across reboots\n");
@@ -11656,6 +12105,7 @@ void Usage_full(void)
 	fprintf(stderr, "                                fabric\n");
 	fprintf(stderr, "    ious                      - summary of all IO Units in fabric\n");
 	fprintf(stderr, "    lids                      - summary of all LIDs in fabric\n");
+	fprintf(stderr, "    linkinfo                  - summary of all links with LIDs in fabric\n");
 	fprintf(stderr, "    links                     - summary of all links\n");
 	fprintf(stderr, "    extlinks                  - summary of links external to systems\n");
 	fprintf(stderr, "    filinks                   - summary of links to FIs\n");
@@ -11700,6 +12150,7 @@ void Usage_full(void)
 	fprintf(stderr, "                                detect MFT-multicast membership inconsistencies.\n");
 	fprintf(stderr, "    vfinfo                    - summary of vFabric information\n");
 	fprintf(stderr, "    vfmember                  - summary of vFabric membership information\n");
+	fprintf(stderr, "    dgmember                  - summary of DeviceGroup membership information\n");
 	fprintf(stderr, "    verifyfis                 - compare fabric (or snapshot) FIs to supplied\n");
 	fprintf(stderr, "                                topology and identify differences and omissions\n");
 	fprintf(stderr, "    verifysws                 - compare fabric (or snapshot) Switches to\n");
@@ -11776,9 +12227,9 @@ void Usage_full(void)
 	fprintf(stderr, "   nodedetpat:value1:port:value2\n");
         fprintf(stderr, "                              - value1 is glob pattern for node details,\n");
 	fprintf(stderr, "                                value2 is port #\n");
-	fprintf(stderr, "   nodetype:value             - value is node type (SW, FI or RT)\n");
+	fprintf(stderr, "   nodetype:value             - value is node type (SW or FI)\n");
 	fprintf(stderr, "   nodetype:value1:port:value2\n");
-        fprintf(stderr, "                              - value1 is node type (SW, FI or RT)\n");
+        fprintf(stderr, "                              - value1 is node type (SW or FI)\n");
 	fprintf(stderr, "                                value2 is port #\n");
 	fprintf(stderr, "   rate:value                 - value is string for rate (25g, 50g, 75g, 100g)\n");
 	fprintf(stderr, "                                omits switch mgmt port 0\n");
@@ -11811,6 +12262,8 @@ void Usage_full(void)
 	fprintf(stderr, "                                value\n");
 	fprintf(stderr, "   linkqualGE:value           - ports with a link quality greater than or equal\n");
 	fprintf(stderr, "                                to value\n");
+	fprintf(stderr, "   nodepatfile:FILENAME       - name of file with list of nodes\n");
+	fprintf(stderr, "   nodepairpatfile:FILENAME   - name of file with list of node pairs separated by colon\n");
 	fprintf(stderr, "Examples:\n");
 	fprintf(stderr, "   opareport -o comps -d 3\n");
 	fprintf(stderr, "   opareport -o errors -o slowlinks\n");
@@ -11855,11 +12308,14 @@ void Usage_full(void)
 	fprintf(stderr, "   opareport -o nodes -F 'route:node:duster hfi1_0:node:cuda hfi1_0'\n");
 	fprintf(stderr, "   opareport -o nodes -F \\\n");
 	fprintf(stderr, "       'route:node:duster hfi1_0:port:1:node:cuda hfi1_0:port:2'\n");
+	fprintf(stderr, "   opareport -o treepathusage -F nodepairpatfile:FILENAME\n");
+	fprintf(stderr, "   opareport -o pathusage -F nodepatfile:FILENAME\n");
 	fprintf(stderr, "   opareport -s -o snapshot > file\n");
 	fprintf(stderr, "   opareport -o topology > topology.xml\n");
 	fprintf(stderr, "   opareport -o errors -X file\n");
 	fprintf(stderr, "   opareport -s --begin \"2 days ago\"\n");
 	fprintf(stderr, "   opareport -s --begin \"12:30\" --end \"14:00\"\n");
+	fprintf(stderr, "   opareport -o linkinfo -x > file\n");
 	exit(0);
 }
 
@@ -11993,11 +12449,15 @@ int parse(const char* filename)
 	}
 #define PARSE_THRESHOLD64(field, name) \
 	if (strcmp(param, #name) == 0) { \
+		if (threshold >= UINT64_MAX) { \
+			fprintf(stderr, "opareport: " #name " max threshold is %llu, ignoring: %llu\n",(unsigned long long)UINT64_MAX-1, threshold); \
+		} else { \
 			g_Thresholds.field = threshold; \
 			if (threshold) { \
 				g_CounterSelectMask.CounterSelectMask.s.field = 1; \
 			} \
-		}
+		} \
+	}
 #define PARSE_MB_THRESHOLD(field, name) \
 	if (strcmp(param, #name) == 0) { \
 		if (threshold > ((1ULL << 63)-1)/(FLITS_PER_MB/2)) { \
@@ -12070,6 +12530,8 @@ report_t checkOutputType(const char* name)
 		return REPORT_BRNODES;
 	} else if (0 == strcmp(optarg, "ious")) {
 		return REPORT_IOUS;
+	} else if (0 == strcmp(optarg, "linkinfo")) {
+		return REPORT_LINKINFO;
 	} else if (0 == strcmp(optarg, "links")) {
 		return REPORT_LINKS;
 	} else if (0 == strcmp(optarg, "extlinks")) {
@@ -12160,10 +12622,14 @@ report_t checkOutputType(const char* name)
 		return REPORT_VERIFYPGS;
 	} else if (0 == strcmp(optarg, "vfmember")) {
 		return REPORT_VFMEMBER;
+	} else if (0 == strcmp(optarg, "dgmember")) {
+		return REPORT_DGMEMBER;
 	} else if (0 == strcmp(optarg, "quarantinednodes")) {
 		return REPORT_QUARANTINE_NODES;
 	} else if (0 == strcmp(optarg, "topology")) {
 		return REPORT_TOPOLOGY;
+	} else if (0 == strcmp(optarg, "cablehealth")) {
+		return REPORT_CABLEHEALTH;
 	} else if (0 == strcmp(optarg, "all")) {
 		/* note we omit brcomp and brnodes since comp and nodes is superset */
 		/* similarly links is a suprset of filinks, islinks, extislinks */
@@ -12208,8 +12674,8 @@ int main(int argc, char ** argv)
 	g_quiet = ! isatty(2);	// disable progress if stderr is not tty
 	
 	// process command line arguments
-	while (-1 != (c = getopt_long(argc,argv, "vVAqh:p:o:d:PHNsrRi:CamK:MLc:S:D:F:xX:T:Qb:e:",
-									options, &index)))
+	while (-1 != (c = getopt_long(argc,argv, "vVAqh:p:o:d:PHNsri:CamK:MLc:S:D:F:xX:T:"
+						"Qb:e:", options, &index)))
     {
         switch (c)
         {
@@ -12240,6 +12706,12 @@ int main(int argc, char ** argv)
 				}
 				gotport=TRUE;
                 break;
+            case '!':
+				if (FSUCCESS != StringToInt32(&g_ms_timeout, optarg, NULL, 0, TRUE)) {
+					fprintf(stderr, "opareport: Invalid timeout value: %s\n", optarg);
+					Usage();
+				}
+		break;
             case 'o':	// select output record desired
 				report = (report_t) report | checkOutputType(optarg);
 				if (report & REPORT_ERRORS)
@@ -12269,8 +12741,10 @@ int main(int argc, char ** argv)
 							  |REPORT_VERIFYFILINKS|REPORT_VERIFYISLINKS
 							  |REPORT_VERIFYEXTISLINKS))
 					find_flag |= FIND_FLAG_ELINK;
-                break;
-            case 'd':	// detail level
+				if (report & REPORT_CABLEHEALTH)
+					sweepFlags |= FF_SMADIRECT|FF_CABLELOWPAGE;
+				break;
+			case 'd':	// detail level
 				if (FSUCCESS != StringToUint32(&temp, optarg, NULL, 0, TRUE)) {
 					fprintf(stderr, "opareport: Invalid Detail Level: %s\n", optarg);
 					Usage();
@@ -12422,6 +12896,34 @@ int main(int argc, char ** argv)
 		// NOTREACHED
 	}	
 
+	// check for incompatible reports
+	if ((report & REPORT_CABLEHEALTH) && (report != REPORT_CABLEHEALTH)) {
+		fprintf(stderr, "opareport: -o cablehealth cannot be run with other reports.\n");
+		Usage();
+		// NOTREACHED
+	}
+
+	// check for incompatible arguments
+	if ((report & REPORT_CABLEHEALTH) && g_snapshot_in_file) {
+		fprintf(stderr, "opareport: -o cablehealth option is not permitted against a snapshot.\n");
+		Usage();
+		// NOTREACHED
+	}
+
+	// check for incompatible arguments
+	if ((report & REPORT_CABLEHEALTH) && (format == FORMAT_XML)) {
+		fprintf(stderr, "opareport: -o cablehealth option only supports CSV output\n");
+		Usage();
+		// NOTREACHED
+	}
+
+	// check for incompatible arguments
+	if ((report & REPORT_LINKINFO) && (format == FORMAT_XML)) {
+		fprintf(stderr, "opareport: -o linkinfo option does not support XML output\n");
+		Usage();
+		// NOTREACHED
+	}
+
 	// Warn for extraneous arguments and ignore them
 	if ((route_dest || route_src) && ! (report & REPORT_ROUTE)) {
 		fprintf(stderr, "opareport: -S or -D option given without -o route, ignoring -S and -D\n");
@@ -12477,6 +12979,11 @@ int main(int argc, char ** argv)
 	if (!g_snapshot_in_file && (sweepFlags & FF_SMADIRECT)&& ((report & REPORT_ROUTE ) || ( focus_arg && NULL != ComparePrefix(focus_arg, "route:"))))  
 		routes = 1;
 	
+	if ((report & REPORT_DGMEMBER) && g_snapshot_in_file) {
+		fprintf(stderr, "opareport: -o dgmember option is not permitted against a snapshot.\n");
+		Usage();
+		// NOTREACHED
+	}
 
 	if (g_snapshot_in_file && (g_interval || g_clearstats || g_clearallstats || g_begin || g_end)) {
 		fprintf(stderr, "opareport: -i, -C, -a, -b, and -e ignored for -X\n");
@@ -12614,7 +13121,13 @@ int main(int argc, char ** argv)
 			g_exitstatus = 1;
 			goto done;
 		}
-		if (FSUCCESS != Sweep(g_portGuid, &g_Fabric, sweepFlags, SWEEP_ALL, g_quiet)) {
+		if (sweepFlags & FF_SMADIRECT) {
+			if (FSUCCESS != InitSmaMkey(0)) {
+				g_exitstatus = 1;
+				goto done;
+			}
+		}
+		if (FSUCCESS != Sweep(g_portGuid, &g_Fabric, sweepFlags, SWEEP_ALL, g_quiet, g_ms_timeout)) {
 			g_exitstatus = 1;
 			goto done;
 		}
@@ -12696,7 +13209,9 @@ int main(int argc, char ** argv)
 	}
 
 	if ((!g_snapshot_in_file && routes && ! g_hard && ! g_persist) || (g_snapshot_in_file && (report & REPORT_PORTUSAGE))) {
-		if (!g_snapshot_in_file && (FSUCCESS != GetAllFDBs(g_portGuid, &g_Fabric, &focus, g_quiet))) {
+		// Scanning through all switches is required to get LinearFDB to tabulate routes for path usage reports. It is not limited to switches in focus.
+		if (!g_snapshot_in_file && (FSUCCESS != GetAllFDBs(g_portGuid, &g_Fabric,
+			((report & REPORT_PATHUSAGE) || ((report & REPORT_TREEPATHUSAGE)))?NULL:&focus, g_quiet))) {
 			g_exitstatus = 1;
 			goto done_fabric;
 		}
@@ -12972,9 +13487,17 @@ int main(int argc, char ** argv)
 	if (report & REPORT_VFMEMBER) 
 		ShowVFMemberReport(&focus, format, 0, detail);
 
+	if (report & REPORT_DGMEMBER) 
+		ShowDGMemberReport(&focus, format, 0, detail);
 
 	if (report & REPORT_QUARANTINE_NODES) 
 		ShowQuarantineNodeReport(&focus, format, 0, detail);
+
+	if (report & REPORT_CABLEHEALTH)
+		ShowCableHealthReport(&focus, format, 0, detail);
+
+	if (report & REPORT_LINKINFO)
+		ShowLinkInfoReport(&focus, format, 0, detail);
 
 	if (g_clearstats || g_clearallstats)
 		(void)ClearAllPortCountersAndShow(g_portGuid, &focus, g_clearallstats, format, report == REPORT_SNAPSHOT);

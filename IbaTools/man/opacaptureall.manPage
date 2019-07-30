@@ -1,12 +1,12 @@
 .\" .\" *********************************************************************
 .\" .\" *                                                                   *
-.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
 .\" .\" *                                                                   *
 .\" .\" *                       All Rights Reserved.                        *
 .\" .\" *                                                                   *
 .\" .\" *********************************************************************
 
-.TH opacaptureall 8 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.TH opacaptureall 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
 .SH NAME
 opacaptureall
 
@@ -74,12 +74,12 @@ Specifies the list of chassis on which to perform a capture.
 .TP 10
 -t \fIportsfile\fR 
 .NL
-Specifies the file with list of local HFI ports used to access fabric(s) for switch access, default is /etc/opa/ports file.
+Specifies the file with list of local HFI ports used to access fabric(s) for switch access. Default is /etc/opa/ports file.
 
 .TP 10
 -d \fIupload\(uldir\fR 
 .NL
-Specifies the directory to upload to; default is uploads. If not specified, the environment variable \fBUPLOADS\(ulDIR\fR is used. If that is not exported, the default (./uploads) is used.
+Specifies the directory to upload to. Default is uploads. If not specified, the environment variable \fBUPLOADS\(ulDIR\fR is used. If that is not exported, the default ./uploads is used.
 
 .TP 10
 -S 
@@ -151,40 +151,42 @@ Specifies the name for capture file. The suffix .tgz is appended if it is not sp
 .NL
 opacaptureall
 .br
-# Creates a hostcapture directory in upload\(uldir/hostname/ for each host in
+# Creates a hostcapture directory in upload\(uldir/hostname/ for each host
 .br
-/etc/opa/hosts file, then creates hostcapture.all.tgz.
+in /etc/opa/hosts file, then creates hostcapture.all.tgz.
 .br
 
 .br
 opacaptureall mycapture
 .br
-# Creates a mycapture directory in upload\(uldir/hostname/ for each host in
+# Creates a mycapture directory in upload\(uldir/hostname/ for each host
 .br
-/etc/opa/hosts file, then creates mycapture.all.tgz.
+in /etc/opa/hosts file, then creates mycapture.all.tgz.
 .br
 
 .br
 opacaptureall -h \[aq]arwen elrond\[aq] 030127capture
 .br
-# Gets the list of hosts from arwen elrond file and creates 030127capture.tgz file.
+# Gets the list of hosts from arwen elrond file and creates
+.br
+030127capture.tgz file.
 .NL
 
 .SH Chassis Capture Examples
 .NL
 opacaptureall -C
 .br
-# Creates a chassiscapture file in upload\(uldir/chassisname/ for each chassis
+# Creates a chassiscapture file in upload\(uldir/chassisname/ for each
 .br
-in /etc/opa/chassis file, then creates chassiscapture.all.tgz.
+chassis in /etc/opa/chassis file, then creates chassiscapture.all.tgz.
 .br
 
 .br
 opacaptureall -C mycapture
 .br
-# Creates a mycapture.tgz file in upload\(uldir/chassisname/ for each chassis
+# Creates a mycapture.tgz file in upload\(uldir/chassisname/ for each
 .br
-in /etc/opa/chassis file, then creates mycapture.all.tgz.
+chassis in /etc/opa/chassis file, then creates mycapture.all.tgz.
 .br
 
 .br

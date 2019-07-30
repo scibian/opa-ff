@@ -1,6 +1,6 @@
 /* BEGIN_ICS_COPYRIGHT7 ****************************************
 
-Copyright (c) 2015-2017, Intel Corporation
+Copyright (c) 2015-2018, Intel Corporation
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -33,7 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "opasmaquery.h"
 
-uint64	g_mkey=0;
+
 uint8 g_detail = CABLEINFO_DETAIL_BRIEF;
 unsigned g_verbose = 0;
 PrintDest_t g_dest;
@@ -61,7 +61,7 @@ static FSTATUS parsePortMask(const char *str)
 		return FINVALID_PARAMETER;
 
 	while (isspace(*str)) ++str;
-		
+
 	/* Require leading '0x' */
 	if (str[0] != '0' || str[1] != 'x')
 		return FINVALID_PARAMETER;
@@ -131,7 +131,7 @@ int main(int argc, char** argv)
 	}
 
 	if ( (strcmp(g_cmdname, "opasmaquery") == 0)) {
-		options = "vd:nl:m:h:p:K:o:b:f:gt:i?";
+		options = "vd:nl:m:h:p:o:b:f:gt:c:i?";
 		g_optypes = sma_query;
 		otype = string_to_otype("nodeinfo");
 	} else if ( (strcmp(g_cmdname, "opapmaquery") == 0)) {
@@ -190,14 +190,17 @@ int main(int argc, char** argv)
 			}
 			args.tflag = TRUE;
 			break;
+		case 'c':
+			args.cflag = TRUE;
+			break;
 		case 'b':
 			{
 				char *sTemp;
-				
+
 				if (*(sTemp = optarg) == ',') {
 					args.block = 0;
 					sTemp++;
-					
+
 					if (FSUCCESS != StringToUint8(&args.bcount, sTemp, NULL, 0, TRUE)) {
 						fprintf(stderr, "%s: Invalid block count: %s\n", g_cmdname, optarg);
 						Usage(FALSE);
@@ -244,12 +247,6 @@ int main(int argc, char** argv)
 		case 'p':
 			if (FSUCCESS != StringToUint8(&port, optarg, NULL, 0, TRUE)) {
 				fprintf(stderr, "%s: Invalid Port Number: %s\n", g_cmdname, optarg);
-				Usage(FALSE);
-			}
-			break;
-		case 'K':
-			if (FSUCCESS != StringToUint64(&g_mkey, optarg, NULL, 0, TRUE)) {
-				fprintf(stderr, "%s: Invalid mkey: %s\n", g_cmdname, optarg);
 				Usage(FALSE);
 			}
 			break;
@@ -313,15 +310,16 @@ int main(int argc, char** argv)
 	if (args.flid && ! g_optypes[otype].fflag) {
 		fprintf(stderr, "%s: -f ignored for -o %s\n", g_cmdname, g_optypes[otype].name);
 	}
-
 	if (args.bflag && ! g_optypes[otype].bflag) {
 		fprintf(stderr, "%s: -b ignored for -o %s\n", g_cmdname, g_optypes[otype].name);
 	}
-
 	if (args.eflag && ! g_optypes[otype].eflag) {
 		fprintf(stderr, "%s: -e ignored for -o %s\n", g_cmdname, g_optypes[otype].name);
 	}
-	
+	if (args.cflag && ! g_optypes[otype].cflag) {
+		fprintf(stderr, "%s: -c ignored for -o %s\n", g_cmdname, g_optypes[otype].name);
+	}
+
 	if (args.mflag) {
 		if (! g_optypes[otype].mflag && ! g_optypes[otype].mflag2) {
 			fprintf(stderr, "%s: -m ignored for -o %s\n", g_cmdname, g_optypes[otype].name);
@@ -332,7 +330,7 @@ int main(int argc, char** argv)
 				Usage(FALSE);
 			}
 			args.mcount=1;
-		} else if (g_optypes[otype].mflag2 && strchr(mports,',')) {	
+		} else if (g_optypes[otype].mflag2 && strchr(mports,',')) {
 			// inport,outport
 			char *sTemp;
 			if (FSUCCESS != StringToUint8(&args.inport, mports, &sTemp, 0, TRUE)
@@ -360,7 +358,7 @@ int main(int argc, char** argv)
 				Usage(FALSE);
 			}
 		} else {
-			fprintf(stderr, "%s: illegal value for -m: \"%s\"\n", 
+			fprintf(stderr, "%s: illegal value for -m: \"%s\"\n",
 				g_cmdname, mports);
 			Usage(FALSE);
 		}

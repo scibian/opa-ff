@@ -26,16 +26,13 @@ mkdir -p ${DESTDIR}/usr/share/opa/{samples,help}
 mkdir -p ${DESTDIR}/${DSAP_LIBDIR}/ibacm
 mkdir -p ${DESTDIR}/etc/rdma
 mkdir -p ${DESTDIR}/etc/opa
+mkdir -p ${DESTDIR}/etc/cron.d
 mkdir -p ${DESTDIR}/usr/include/infiniband
 mkdir -p ${DESTDIR}/usr/include/opamgt/iba/public
 mkdir -p ${DESTDIR}/usr/src/opamgt
 mkdir -p ${DESTDIR}/usr/share/man/man1
 mkdir -p ${DESTDIR}/usr/share/man/man8
 mkdir -p ${DESTDIR}/usr/src/opa/{mpi_apps,shmem_apps}
-
-# Copy the comp.pl file before changing directories
-cp -t ${DESTDIR}/usr/lib/opa OpenIb_Host/.comp_fastfabric.pl
-cp -t ${DESTDIR}/usr/lib/opa OpenIb_Host/.comp_oftools.pl
 
 #Binaries and scripts installing (basic tools)
 #cd builtbin.OPENIB_FF.release
@@ -61,6 +58,7 @@ OPAMGT_VERNO_MAJOR=$(cat version | cut -d . -f 1)
 
 cd ../bin
 cp -t ${DESTDIR}/usr/lib/opa/tools/ $ff_tools_opt
+cp -t ${DESTDIR}/usr/lib/opa/tools/ $opasnapconfig_bin
 
 cd ../fastfabric
 cp -t ${DESTDIR}/usr/sbin $ff_tools_sbin
@@ -72,6 +70,9 @@ cd ../etc
 cp -t ${DESTDIR}/usr/lib/opa/fm_tools/ $ff_tools_fm
 ln -s /usr/lib/opa/fm_tools/config_check ${DESTDIR}/usr/sbin/opafmconfigcheck
 ln -s /usr/lib/opa/fm_tools/config_diff ${DESTDIR}/usr/sbin/opafmconfigdiff
+cd cron.d
+cp -t ${DESTDIR}/etc/cron.d opa-cablehealth
+cd ..
 
 cd ../fastfabric/samples
 cp -t ${DESTDIR}/usr/share/opa/samples $ff_iba_samples $basic_samples
@@ -102,12 +103,16 @@ cd ../../
 #Config files
 cd ../config
 cp -t ${DESTDIR}/etc/rdma dsap.conf
+cp -t ${DESTDIR}/etc/rdma op_path_rec.conf
+cp -t ${DESTDIR}/etc/rdma opasadb.xml
 cp -t ${DESTDIR}/etc/opa opamon.conf opamon.si.conf
 
 #Libraries installing
 #cd ../builtlibs.OPENIB_FF.release
 cd $(cat $BUILDDIR/LIB_PATH)
 cp -t ${DESTDIR}/${DSAP_LIBDIR} libopasadb.so.*
+ln -s libopasadb.so.* ${DESTDIR}/${DSAP_LIBDIR}/libopasadb.so.1
+ln -s libopasadb.so.1 ${DESTDIR}/${DSAP_LIBDIR}/libopasadb.so
 cp -t ${DESTDIR}/${DSAP_LIBDIR}/ibacm libdsap.so.*
 cp -t ${DESTDIR}/usr/lib libopamgt.so.*
 ln -s libopamgt.so.${OPAMGT_VERNO_MAJOR} ${DESTDIR}/usr/lib/libopamgt.so

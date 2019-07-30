@@ -257,11 +257,29 @@ static _inline void MemoryFixAddrLength(IN uint32 page_size,
  */
 static _inline char * StringCopy(char * dest, const char * source, size_t dstsize)
 {
-	if(!dstsize)
+	if(!dest || !dstsize || !source)
 		return NULL;
-	dest[0] = '\0';
-	return strncat(dest,source,dstsize-1);
+
+#if defined(VXWORKS)
+	size_t l = MIN(dstsize-1,strlen(source));
+#else
+	size_t l = strnlen(source, dstsize-1);
+#endif
+	memcpy(dest,source,l);
+	dest[l] = '\0';
+	return dest;
 }
+
+/**
+ * Concatenates all of the given strings into one long string. The returned
+ * string should be freed by #free. Variable arguments must end with NULL.
+ * Otherwise the function will be appending random memory junks.
+ * @param str1		first string to be concatenated
+ * @param ...		a NULL-terminated list of strings
+ * @return	newly allocated string containing all provided strings
+ */
+char* StringConcat(const char* str1, ...);
+
 
 // convert a string to a uint or int
 // Very similar to strtoull/strtoll except that
@@ -504,6 +522,10 @@ MemoryAllocateVxWorksTrack(
     IN uint32 Bytes,
 	IN char *reason,
 	IN void *caller);
+
+int
+MemoryTrackerTrackDeallocate(
+	IN void *pMemory);
 #endif
 
 #ifdef MEM_TRACK_ON

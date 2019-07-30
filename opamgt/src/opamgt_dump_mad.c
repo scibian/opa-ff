@@ -135,7 +135,9 @@ const char *stl_mad_status_str(uint8_t BaseVersion, uint8_t class, uint16_t Stat
 			case STL_MAD_STATUS_STL_PA_NO_VF:               return("VF not found");
 			case STL_MAD_STATUS_STL_PA_INVALID_PARAMETER:   return("Invalid parameter");
 			case STL_MAD_STATUS_STL_PA_NO_IMAGE:            return("Image not found");
-			default:										return umad_sa_mad_status_str(Status);
+			case STL_MAD_STATUS_STL_PA_NO_DATA:             return("No Counter Data");
+			case STL_MAD_STATUS_STL_PA_BAD_DATA:            return("Bad Counter Data");
+			default:                                        return umad_sa_mad_status_str(Status);
 			}
             break;
         }
@@ -268,7 +270,9 @@ const char *stl_attribute_str(uint8_t BaseVersion, uint8_t class, uint16_t attr)
 		case STL_PA_ATTRID_GET_FOCUS_PORTS_MULTISELECT: return("MultiSelectFocusPorts");
 		case STL_PA_ATTRID_GET_GRP_NODE_INFO:       return("GroupNodeInfo");
 		case STL_PA_ATTRID_GET_GRP_LINK_INFO:       return("GroupLinkInfo");
-        }
+		case STL_PA_ATTRID_GET_GRP_LIST2:           return("GroupList2");
+		case STL_PA_ATTRID_GET_VF_LIST2:            return("VFList2");
+		}
         break;
 
 	}

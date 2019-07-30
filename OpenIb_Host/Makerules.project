@@ -87,6 +87,7 @@ else
 STAGE_SUB_DIR		= IntelOPA-Tools-FF.$(BUILD_TARGET_OS_ID).$(MODULEVERSION)
 endif
 PROJ_STAGE_DIR		= $(STAGE_DIR)/$(STAGE_SUB_DIR)
+PROJ_STAGE_ETC_DIR	= $(PROJ_STAGE_DIR)/etc
 PROJ_STAGE_BIN_DIR	= $(PROJ_STAGE_DIR)/bin
 PROJ_STAGE_MAN_DIR	= $(PROJ_STAGE_DIR)/man
 PROJ_STAGE_INCLUDE_DIR	= $(PROJ_STAGE_DIR)/include
@@ -118,7 +119,7 @@ BSCPROJ			=
 # strict-prototypes - treat extern int foo() as function with no args
 CPROJ			= -DPRODUCT=$(PRODUCT) -DPRODUCT_$(PRODUCT) -DMODULEVERSION=$(MODULEVERSION) -DIB_STACK_OPENIB
 # include buildFeatureDefs to let inplace build work for stream consistency
-CPROJ			+= -include $(TL_DIR)/buildFeatureDefs
+CPROJ			+= -include $(TL_DIR)/Fd/buildFeatureDefs
 ifeq ($(__GNUC__),2)
 CPROJ   += -fstrict-prototypes
 endif

@@ -215,7 +215,6 @@ sub printInstallAvailableState($$$$$$)
 # Component processing
 
 # function must be supplied if any components set ComponentInfo{}{HasFirmware}
-sub update_hca_firmware();
 
 # these variables must be initialized by main program to control the
 # data driven component menus and functions in this section
@@ -252,15 +251,14 @@ my $WrapperComponent = "";
 # This provides more detailed information about each Component in @Components
 # since hashes are not retained in the order specified, we still need
 # @Components and @SubComponents to control install and menu order
+# Only items listed in @Components and @SubComponents are considered for install
+# As such, this may list some components which are N/A to the selected distro
 # Fields are as follows:
 #	Name => full name of component/subcomponent for prompts
 # 	DefaultInstall => default installation (State_DoNotInstall,
 # 					  State_DoNotAutoInstall or State_Install)
 #					  used only when available and ! installed
 #	SrcDir => directory name within install media for component
-#	DriverSubdir => directory within /lib/modules/$CUR_OS_VERSION/ to
-#					install driver to.  Set to "" if no drivers in component
-#					set to "." if no subdir
 # 	PreReq => other components which are prereqs of a given
 #				component/subcomponent
 #				Need space before and after each component name to
@@ -277,6 +275,29 @@ my $WrapperComponent = "";
 #			  used for hidden PreReq.  Hidden components can't HasStart
 #			  nor HasFirmware
 #	Disabled =>  components/subcomponents which are disabled from installation
+#	IsOFA =>  is an in-distro OFA component we upgrade (excludes MPI)
+#	KernelRpms => kernel rpms for given component, in dependency order
+#				These are rpms which are kernel version specific and
+#				will have kernel uname -r in rpm package name.
+#				For a given distro a separate version of each of these rpms
+#				may exist per kernel.  These are always architecture dependent
+#				Note KernelRpms are always installed before FirmwareRpms and
+#				UserRpms
+#	FirmwareRpms => firmware rpms for given component, in dependency order
+#				These are rpms which are not kernel specific.  For a given
+#				distro a single version of each of these rpms will
+#				exist per distro/arch combination.  In most cases they will
+#				be architecture independent (noarch).
+#				These are rpms which are installed in user space but
+#				ultimately end up in hardware such as HFI firmware, TMM firmware
+#				BIOS firmware, etc.
+#	UserRpms => user rpms for given component, in dependency order
+#				These are rpms which are not kernel specific.  For a given
+#				distro a single version of each of these rpms will
+#				exist per distro/arch combination.  Some of these may
+#				be architecture independent (noarch).
+#	DebugRpms => user rpms for component which should be installed as part
+#				of delta_debug component.
 #	HasStart =>  components/subcomponents which have autostart capability
 #	DefaultStart =>  should autostart default to Enable (1) or Disable (0)
 #				Not needed/ignored unless HasStart=1
@@ -289,13 +310,21 @@ my $WrapperComponent = "";
 #	StartComponents => components/subcomponents with start for this component
 #				if a component has a start script 
 #				list the component as a subcomponent of itself
+#	StartupScript => name of startup script which controls startup of this
+#				component
+#	StartupParams => list of parameter names in $OPA_CONFIG which control
+#				startup of this component (set to yes/no values)
 #	HasFirmware =>  components which need HCA firmware update after installed
 #
 # Note both Components and SubComponents are included in the list below.
 # Components require all fields be supplied
 # SubComponents only require the following fields:
 #	Name, PreReq (should reference only components), HasStart, StartPreReq,
-#	DefaultStart
+#	DefaultStart, and optionally StartupScript, StartupParams
+#	Also SubComponents only require the IsAutostart2_X, autostart_desc_X,
+#	enable_autostart2_X, disable_autostart2_X and installed_X functions.
+#	Typically installed_X for a SubComponent will simply call installed_X for
+#	the component which contains it.
 my %ComponentInfo = ();
 	# translate from startup script name to component/subcomponent name
 my %StartupComponent = ();
@@ -307,12 +336,13 @@ my $Start_Unspecified=0;
 my $Start_NoStart=1;
 my $Start_Start=2;
 
-sub ShowComponents()
+sub ShowComponents(;$)
 {
+	my $print_param = shift || \*STDOUT; #STDOUT as default parameter
 	foreach my $comp ( @Components )
 	{
 		if (! $ComponentInfo{$comp}{'Hidden'}) {
-			print " $comp";
+			print $print_param " $comp";
 		}
 	}
 	print "\n";
@@ -363,6 +393,15 @@ sub comp_has_startprereq_of($$)
 	} else {
 		return 0;
 	}
+}
+
+# package is supplied since for a few packages (such as GPU Direct specific
+# packages) we may pick a different directory based on package name
+sub comp_get_rpms_dir($$)
+{
+	my $comp = shift();
+	my $package = shift();
+	return eval "get_rpms_dir_$comp('$package')";
 }
 
 # for comp_is_available we specially handle the case of function not found
@@ -572,11 +611,13 @@ sub comp_install($$$)
 
 	# sanity check, should not get here if false
 	if (! comp_is_available($comp) ) {
+		$exit_code = 1;
 		return;
 	}
 	print_separator;
 	# this will catch failures in install of prereqs
 	if (! check_prereqs($comp)) {
+		$exit_code = 1;
 		return;
 	}
 
@@ -671,12 +712,18 @@ sub DumpComponents($)
 		return;
 	}
 	DebugPrint("\nComponents:\n");
-	foreach my $comp ( @Components ) {
+	foreach my $comp ( @Components, "mpiRest" ) {
 		DebugPrint("   $comp: '$ComponentInfo{$comp}{'Name'}' SrcDir: $ComponentInfo{$comp}{'SrcDir'}\n");
-		DebugPrint("           DefaultInstall: ".InstallStateToStr($ComponentInfo{$comp}{'DefaultInstall'})." DriverSubdir: $ComponentInfo{$comp}{'DriverSubdir'}\n");
+		DebugPrint("           DefaultInstall: ".InstallStateToStr($ComponentInfo{$comp}{'DefaultInstall'})."\n");
 		DebugPrint("           PreReq: $ComponentInfo{$comp}{'PreReq'} CoReq: $ComponentInfo{$comp}{'CoReq'}\n");
-		DebugPrint("           Hidden: $ComponentInfo{$comp}{'Hidden'} HasStart: $ComponentInfo{$comp}{'HasStart'} HasFirmware: $ComponentInfo{$comp}{'HasFirmware'}\n");
-		DebugPrint("           StartPreReq: $ComponentInfo{$comp}{'StartPreReq'} StartComponents: $ComponentInfo{$comp}{'StartComponents'}\n");
+		DebugPrint("           Hidden: $ComponentInfo{$comp}{'Hidden'} Disabled: $ComponentInfo{$comp}{'Disabled'} HasFirmware: $ComponentInfo{$comp}{'HasFirmware'} IsOFA: $ComponentInfo{$comp}{'IsOFA'}\n");
+		DebugPrint("           KernelRpms: @{ $ComponentInfo{$comp}{'KernelRpms'}}\n");
+		DebugPrint("           FirmwareRpms @{ $ComponentInfo{$comp}{'FirmwareRpms'}}\n");
+		DebugPrint("           UserRpms: @{ $ComponentInfo{$comp}{'UserRpms'}}\n");
+		DebugPrint("           DebugRpms: @{ $ComponentInfo{$comp}{'DebugRpms'}}\n");
+		DebugPrint("           HasStart: $ComponentInfo{$comp}{'HasStart'} DefaultStart: $ComponentInfo{$comp}{'DefaultStart'}\n");
+		DebugPrint("           StartPreReq: $ComponentInfo{$comp}{'StartPreReq'} StartComponents: @{ $ComponentInfo{$comp}{'StartComponents'}}\n");
+		DebugPrint("           StartupScript: $ComponentInfo{$comp}{'StartupScript'} StartupParams: @{ $ComponentInfo{$comp}{'StartupParams'}}\n");
 		if ($allow_install) {
 			my $avail = comp_is_available($comp);
 			DebugPrint("           IsAvailable: $avail");
@@ -699,6 +746,92 @@ sub DumpComponents($)
 		DebugPrint("           PreReq: $ComponentInfo{$comp}{'PreReq'} CoReq: $ComponentInfo{$comp}{'CoReq'}\n");
 		DebugPrint("           HasStart: $ComponentInfo{$comp}{'HasStart'}\n");
 		DebugPrint("           StartPreReq: $ComponentInfo{$comp}{'StartPreReq'}\n");
+		DebugPrint("           StartupScript: $ComponentInfo{$comp}{'StartupScript'} StartupParams: @{ $ComponentInfo{$comp}{'StartupParams'}}\n");
+	}
+}
+
+# output standard banner for component install
+# This function can be called within a components install_X function
+sub print_comp_install_banner($)
+{
+	my $comp = shift();
+
+	my $version=comp_media_version($comp);
+	chomp $version;
+	printf("Installing $ComponentInfo{$comp}{'Name'} $version $DBG_FREE...\n");
+	LogPrint "Installing $ComponentInfo{$comp}{'Name'} $version $DBG_FREE for $CUR_DISTRO_VENDOR $CUR_VENDOR_VER $CUR_OS_VER\n";
+}
+
+# install the given list of rpms for a component
+sub install_comp_rpm_list($$$@)
+{
+	my $comp = shift();
+	my $mode = shift();	# "user" or kernel rev or "firmware"
+	my $options = shift();	# additional rpm command options
+	my @package_list = @_;	# package names
+
+	my @rpmpath_list = ();
+
+	foreach my $package ( @package_list )
+	{
+		my $rpmsdir=comp_get_rpms_dir($comp, $package);
+		@rpmpath_list = ( @rpmpath_list, "$rpmsdir/$package" );
+	}
+	rpm_install_path_list_with_options($mode, "$options", @rpmpath_list);
+}
+
+# helper which does most of the work for installing rpms for a component
+# This function can be called within a components install_X function
+# installs KernelRpms, FirmwareRpms and UserRpms
+# caller must handle any non-RPM files
+sub install_comp_rpms($$$)
+{
+	my $comp = shift();
+	my $options = shift();	# additional rpm command options
+	my $install_list = shift();	# total that will be installed when done
+
+	if (! $user_space_only ) {
+		install_comp_rpm_list($comp, $CUR_OS_VER, "$options",
+								@{ $ComponentInfo{$comp}{'KernelRpms'}} );
+		install_comp_rpm_list($comp, "firmware", "$options",
+								@{ $ComponentInfo{$comp}{'FirmwareRpms'}} );
+	}
+	install_comp_rpm_list($comp, "user", "$options",
+								@{ $ComponentInfo{$comp}{'UserRpms'}} );
+	# DebugRpms are installed as part of 'delta_debug' component
+}
+
+# output standard banner for component uninstall
+# This function can be called within a components install_X function
+sub print_comp_uninstall_banner($)
+{
+	my $comp = shift();
+
+	NormalPrint("Uninstalling $ComponentInfo{$comp}{'Name'}...\n");
+}
+
+# helper which does most of the work for uinstalling rpms for a component
+# This function can be called within a components uninstall_X function
+# uninstalls KernelRpms, FirmwareRpms, UserRpms and DebugRpms
+# caller must handle any non-RPM files
+sub uninstall_comp_rpms($$$$$)
+{
+	my $comp = shift();
+	# the rpm command options
+	my $option = shift();
+	my $install_list = shift();
+	my $uninstalling_list = shift();
+	my $verbosity = shift();
+
+	rpm_uninstall_list2("any", "$option", $verbosity,
+					 @{ $ComponentInfo{$comp}{'DebugRpms'}});
+	rpm_uninstall_list2("any", "$option", $verbosity,
+					 @{ $ComponentInfo{$comp}{'UserRpms'}});
+	if (! $user_space_only ) {
+		rpm_uninstall_list2("any", "$option", $verbosity,
+					 @{ $ComponentInfo{$comp}{'FirmwareRpms'}});
+		rpm_uninstall_list2("any", "$option", $verbosity,
+					 @{ $ComponentInfo{$comp}{'KernelRpms'}});
 	}
 }
 
@@ -805,59 +938,6 @@ sub enable_components(@)
 			}
 		}
 	}
-}
-
-sub install_startup($$$)
-{
-	my($srcdir) = shift();
-	my($WhichStartup) = shift();
-	my($StartupDesc) = shift();
-	my $prompt;
-	my $res;
-
-	if ( "$StartupDesc" eq "" )
-	{
-		$prompt="$WhichStartup";
-	} else {
-		$prompt="$StartupDesc ($WhichStartup)";
-	}
-	print "Creating $prompt system startup files...\n";
-	check_dir("$INIT_DIR");
-	if ( -e "$srcdir/$WhichStartup.$CUR_DISTRO_VENDOR.$CUR_VENDOR_VER" ) {
-		copy_file("$srcdir/$WhichStartup.$CUR_DISTRO_VENDOR.$CUR_VENDOR_VER", "$INIT_DIR/$WhichStartup",
-					"$OWNER", "$GROUP", "ugo=rx,u=rwx");
-	} elsif ( -e "$srcdir/$WhichStartup.$CUR_DISTRO_VENDOR.$CUR_VENDOR_MAJOR_VER" ) {
-		copy_file("$srcdir/$WhichStartup.$CUR_DISTRO_VENDOR.$CUR_VENDOR_MAJOR_VER", "$INIT_DIR/$WhichStartup",
-					"$OWNER", "$GROUP", "ugo=rx,u=rwx");
-	} elsif ( -e "$srcdir/$WhichStartup.$CUR_DISTRO_VENDOR" )
-	{
-		copy_file("$srcdir/$WhichStartup.$CUR_DISTRO_VENDOR", "$INIT_DIR/$WhichStartup",
-					"$OWNER", "$GROUP", "ugo=rx,u=rwx");
-	} elsif ( -e "$srcdir/init_$WhichStartup.$CUR_DISTRO_VENDOR" ) {
-		copy_file("$srcdir/init_$WhichStartup.$CUR_DISTRO_VENDOR", "$INIT_DIR/$WhichStartup",
-					"$OWNER", "$GROUP", "ugo=rx,u=rwx");
-	} elsif ( -e "$srcdir/$WhichStartup" )
-	{
-		copy_file("$srcdir/$WhichStartup", "$INIT_DIR/$WhichStartup",
-					"$OWNER", "$GROUP", "ugo=rx,u=rwx");
-	} elsif ( -e "$srcdir/init_$WhichStartup" ) {
-		copy_file("$srcdir/init_$WhichStartup", "$INIT_DIR/$WhichStartup",
-					"$OWNER", "$GROUP", "ugo=rx,u=rwx");
-	} else {
-		NormalPrint "$prompt system startup file not found\n";
-	}
-	
-	if ( ! $Default_SameAutostart )
-	{
-		disable_autostart($WhichStartup);
-	} else {
-		if ( IsAutostart($WhichStartup) == 1 )
-		{
-			enable_autostart($WhichStartup);
-		} else {
-			disable_autostart($WhichStartup);
-		}
-	}     
 }
 
 # run build for all components
@@ -981,477 +1061,471 @@ sub show_install_menu($)
 		}
 	}
 
-DO_INS:
-	if ( $Default_Install) {	
-		# setstate set UnInstall or DoNotInstall for those not available
-		# force install for all available even if UpToDate
-		# or ComponentInfo{comp}{'DefaultInstall'} is DoNotInstall
-		foreach $comp ( @Components )
-		{
-			if ($available{$comp}
-				&& ($installState{$comp} != $State_DoNotInstall
-					|| $ComponentInfo{$comp}{'DefaultInstall'} != $State_DoNotAutoInstall)) {
-				$installState{$comp} = $State_Install;
-			}
-		}
-		$newstate = $State_Install;
-		$inp='P';
-	} elsif ( $Default_Upgrade) {	
-		foreach $comp ( @Components )
-		{
-			if ( $installed{$comp} )
+	while() {
+		if ( $Default_Install) {
+			# setstate set UnInstall or DoNotInstall for those not available
+			# force install for all available even if UpToDate
+			# or ComponentInfo{comp}{'DefaultInstall'} is DoNotInstall
+			foreach $comp ( @Components )
 			{
-				if ( $available{$comp} )
-				{
+				if ( $available{$comp}
+					&& ($installState{$comp} != $State_DoNotInstall
+						|| $ComponentInfo{$comp}{'DefaultInstall'} != $State_DoNotAutoInstall)) {
 					$installState{$comp} = $State_Install;
-				} elsif ( ! $isupgrade{$comp} ) {
-					$installState{$comp} = $State_UpToDate;
-				} else {
-					$installState{$comp} = $State_Uninstall; # we must uninstall
 				}
-			} else {
-				$installState{$comp} = $State_DoNotInstall;
 			}
-		}
-		$newstate = $State_Install;
-		$inp='P';
-	} elsif ( $Default_CompInstall) {
-		foreach $comp ( @Components )
-		{
-			if ( $Default_Components{$comp} )
+			$newstate = $State_Install;
+			$inp='P';
+		} elsif ( $Default_Upgrade) {
+			foreach $comp ( @Components )
 			{
-				if ( $available{$comp} )
+				if ( $installed{$comp} )
 				{
-					$installState{$comp} = $State_Install;
+					if ( $available{$comp} )
+					{
+						$installState{$comp} = $State_Install;
+					} elsif ( ! $isupgrade{$comp} ) {
+						$installState{$comp} = $State_UpToDate;
+					} else {
+						$installState{$comp} = $State_Uninstall; # we must uninstall
+					}
 				} else {
-					NormalPrint "Unable to install $ComponentInfo{$comp}{'Name'}, Not Available\n";
-					# setstate provided a reasonable default action
-				}
-			} else {
-				# setstate defaulted to install all available and not installed
-				# for version updates re-install to be safe
-				if ( $installState{$comp} == $State_Install 
-					&& ( ! $installed{$comp} || ! $isupgrade{$comp} ) )
-				{
-					# Do Not Install
 					$installState{$comp} = $State_DoNotInstall;
 				}
 			}
-		}
-		$newstate = $State_Install;
-		$inp='P';
-	} else {
-		system "clear";        
-		printf ("$BRAND OPA Install ($VERSION $DBG_FREE) Menu\n\n");
-		my $screens = int((scalar(@Components) - $num_hidden_comps + $maxlines-1)/$maxlines);
-
-		if($GPU_Install == 1) {
-                        printf ("Install GPU Direct components, ensure nvidia drivers + SDK are present \n\n");
-                }
-		if ($screens > 1 ) {
-			printf ("Please Select Install Action (screen %d of $screens):\n",
-						$firstline/$maxlines+1);
-		} else {
-			printf ("Please Select Install Action:\n");
-		}
-		my $index=0;
-		for ($i=0; $i < scalar(@Components); $i++)
-		{
-			$comp = $Components[$i];
-			if ($index >= $firstline && $index < $firstline+$maxlines) {
-				if ($showversion && "$statusMessage{$comp}" eq "") {
-					if ($available{$comp}) {
-						$statusMessage{$comp} = $media_version{$comp};
-						$boldMessage{$comp} = 0;
-					} elsif($installed{$comp}) {
-						$statusMessage{$comp} = $installed_version{$comp};
-						$boldMessage{$comp} = 0;
+			$newstate = $State_Install;
+			$inp='P';
+		} elsif ( $Default_CompInstall) {
+			foreach $comp ( @Components )
+			{
+				if ( $Default_Components{$comp} )
+				{
+					if ( $available{$comp} )
+					{
+						$installState{$comp} = $State_Install;
+					} else {
+						NormalPrint "Unable to install $ComponentInfo{$comp}{'Name'}, Not Available\n";
+						# setstate provided a reasonable default action
+					}
+				} else {
+					# setstate defaulted to install all available and not installed
+					# for version updates re-install to be safe
+					if ( $installState{$comp} == $State_Install
+						&& ( ! $installed{$comp} || ! $isupgrade{$comp} ) )
+					{
+						# Do Not Install
+						$installState{$comp} = $State_DoNotInstall;
 					}
 				}
-				if (! $ComponentInfo{$comp}{'Hidden'}) {
-					printf ("%x) %-20s", $index-$firstline, $ComponentInfo{$comp}{'Name'});
-					printInstallAvailableState($installed{$comp},
-									$available{$comp},
-									$isupgrade{$comp},
- 									$installState{$comp},
-									$boldMessage{$comp}, $statusMessage{$comp});
+			}
+			$newstate = $State_Install;
+			$inp='P';
+		} else {
+			system "clear";
+			printf ("$BRAND OPA Install ($VERSION $DBG_FREE) Menu\n\n");
+			my $screens = int((scalar(@Components) - $num_hidden_comps + $maxlines-1)/$maxlines);
+
+			if($GPU_Install == 1) {
+				printf ("Install GPU Direct components, ensure nvidia drivers + SDK are present \n\n");
+			}
+			if ($screens > 1 ) {
+				printf ("Please Select Install Action (screen %d of $screens):\n",
+							$firstline/$maxlines+1);
+			} else {
+				printf ("Please Select Install Action:\n");
+			}
+			my $index=0;
+			for ($i=0; $i < scalar(@Components); $i++)
+			{
+				$comp = $Components[$i];
+				if ($index >= $firstline && $index < $firstline+$maxlines) {
+					if ($showversion && "$statusMessage{$comp}" eq "") {
+						if ($available{$comp}) {
+							$statusMessage{$comp} = $media_version{$comp};
+							$boldMessage{$comp} = 0;
+						} elsif($installed{$comp}) {
+							$statusMessage{$comp} = $installed_version{$comp};
+							$boldMessage{$comp} = 0;
+						}
+					}
+					if (! $ComponentInfo{$comp}{'Hidden'}) {
+						printf ("%x) %-20s", $index-$firstline, $ComponentInfo{$comp}{'Name'});
+						printInstallAvailableState($installed{$comp},
+										$available{$comp},
+										$isupgrade{$comp},
+										$installState{$comp},
+										$boldMessage{$comp}, $statusMessage{$comp});
+						$index++;
+					}
+				} elsif (! $ComponentInfo{$comp}{'Hidden'}) {
 					$index++;
 				}
-			} elsif (! $ComponentInfo{$comp}{'Hidden'}) {
-				$index++;
+			}
+
+			printf ("\n");
+			if ($screens > 1 ) {
+				printf ("N) Next Screen\n");
+			}
+			printf (  "P) Perform the selected actions       I) Install All\n");
+			printf (  "R) Re-Install All                     U) Uninstall All\n");
+			printf (  "X) Return to Previous Menu (or ESC)\n");	
+
+			$inp = getch();
+
+			if ($inp =~ /[qQ]/ || $inp =~ /[xX]/ || ord($inp) == $KEY_ESC )
+			{
+				return;
+			}
+
+			# do not clear status messages when jump between screens
+			if ($inp !~ /[nN]/ ) {
+				%statusMessage = ();
+				%boldMessage = ();
 			}
 		}
-		
-		printf ("\n");
-		if ($screens > 1 ) {
-			printf ("N) Next Screen\n");
-		}
-		printf (  "P) Perform the selected actions       I) Install All\n");
-		printf (  "R) Re-Install All                     U) Uninstall All\n");
-		printf (  "X) Return to Previous Menu (or ESC)\n");	
 
-		$inp = getch();                
-	        
-		if ($inp =~ /[qQ]/ || $inp =~ /[xX]/ || ord($inp) == $KEY_ESC ) 
+		if ($inp =~ /[nN]/ )
 		{
-			return;
-		}
-
-		# do not clear status messages when jump between screens
-		if ($inp !~ /[nN]/ ) {
-			%statusMessage = ();
-			%boldMessage = ();
-		}
-
-	}
-
-	if ($inp =~ /[nN]/ )
-	{
-		if (scalar(@Components) > $maxlines) {
-			$firstline += $maxlines;
-			if ($firstline >= scalar(@Components)) {
-				$firstline=0;
+			if (scalar(@Components) > $maxlines) {
+				$firstline += $maxlines;
+				if ($firstline >= scalar(@Components)) {
+					$firstline=0;
+				}
 			}
-		}
-	} elsif ($inp =~ /[rR]/ )
-	{
-		foreach $comp ( @Components )
+		} elsif ($inp =~ /[rR]/ )
 		{
-			if ( $installed{$comp} && $available{$comp}) {
-				$installState{$comp} = $State_Install;
-			}
-		}
-	} elsif ($inp =~ /[iI]/ )
-	{
-		foreach $comp ( @Components )
-		{
-			if ( $available{$comp} ) {
-				$installState{$comp} = $State_Install;
-			}
-		}
-		$newstate = $State_Install;
-	} elsif ($inp =~ /[uU]/ )
-	{
-		foreach $comp ( @Components )
-		{
-			$installState{$comp} = $State_Uninstall;
-		}
-		$newstate = $State_Uninstall;
-	} elsif ($inp =~ /[0123456789abcdefABCDEF]/) {
-		my $value = hex($inp);
-		my $index = get_comp_subscript($firstline, $maxlines, $value);
-		if ( $value < $maxlines && $index < scalar(@Components)) {
-			my $selected = $Components[$index];
-			$installState{$selected} = shiftstate($installState{$selected},$installed{$selected},$available{$selected},$isupgrade{$selected});
-			$newstate = $installState{$selected};
-		}
-	}
-
-	if (! will_be_on_system($newstate)) {
-		# something is being uninstalled or not installed
-		# loop through a few times to catch all coreqs, prereqs
-		# and coreqs of prereqs
-		my $done = 0;	# we are done if we loop through with no changes
-		while (! $done) {
-			$done=1;
 			foreach $comp ( @Components )
 			{
-				if (! will_be_on_system($installState{$comp})) {
-					# comp will not be on system, make sure all its
-					# pre/coreqs will also not be on system
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($c, $comp)
-							&& will_be_on_system($installState{$c})) {
-							$statusMessage{$c}="requires $ComponentInfo{$comp}{'Name'}";
-							$boldMessage{$c}=1;
-							$installState{$c}=$installed{$c}?$State_Uninstall:$State_DoNotInstall;
-							$done=0;
-						}
-					}
-				}
-				if ($ComponentInfo{$comp}{'Hidden'}) {
-					# if no longer needed, also remove it
-					my $needed = 0;	# is $comp needed
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($c, $comp)
-							&& will_be_on_system($installState{$c})) {
-							$needed=1;
-						}
-					}
-					if (! $needed && will_be_on_system($installState{$comp})) {
-						$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
-						$done=0;
-					}
+				if ( $installed{$comp} && $available{$comp}) {
+					$installState{$comp} = $State_Install;
 				}
 			}
-		}
-	} elsif (will_be_on_system($newstate)) {
-		# something is being installed or left on system
-		# loop through a few times to catch all coreqs, prereqs
-		# and coreqs of prereqs
-		my $done = 0;	# we are done if we loop through with no changes
-		my $forcedone = 0;	# used to break infinite loop in subtle issue below
-		while (! $forcedone && ! $done) {
-			$done=1;
-			foreach $comp ( @Components )
-			{
-				if (will_be_on_system($installState{$comp})) {
-					# comp will be on system, make sure all its
-					# pre/coreqs will also be on system
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($comp, $c)
-							&& ! will_be_on_system($installState{$c})) {
-							if (! $available{$c} ) {
-								# pre/coreq $c not available, can't install comp
-								$statusMessage{$comp}="requires $ComponentInfo{$c}{'Name'}";
-								$boldMessage{$comp}=1;
-								$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
-								# this should not occur for coreqs
-								# however there are subtle effects here.
-								# If we install an item which has a prereq
-								# whose prereq is not available we could get
-								# stuck with an invalid combination since we
-								# will have marked the 1st prereq installed,
-								# found the 2nd prereq problem
-								# unmarked the 1st prereq but still have
-								# left the original item to be installed
-								# bail to avoid infinite loop
-								$forcedone=1;
-								last;
-							} else {
-								# also install $c
-								$statusMessage{$c}="needed by $ComponentInfo{$comp}{'Name'}";
-								$boldMessage{$c}=1;
-								$installState{$c}=$State_Install;
-							}
-							$done=0;
-						}
-					}
-				}
-				if ($ComponentInfo{$comp}{'Hidden'} && $available{$comp}
-					&& will_be_on_system($installState{$comp})) {
-					# if all prereqs being reinstalled also reinstall it
-					my $reinstall = 1;	# no already installed dependents
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($c, $comp)
-							&& will_be_on_system($installState{$c})
-							&& $installState{$c} != $State_Install) {
-							$reinstall=0;
-						}
-					}
-					if ($reinstall) {
-						$installState{$comp}=$State_Install;
-						# no need to force another loop, didn't change
-						# will_be_on_system($comp)
-					}
-				}
-			}
-		}
-	}
-
-	if ($inp =~ /[pP]/) {
-		# perform the install
-		my $updateFirmware=0;
-
-		# build a list of what will be installed after installation completes
-		# use a space separate string so easier to pass and can be "grep'ed"
-		my $install_list = "";
-		my $installing_list = "";
-		my $uninstalling_list = "";
-		my $have_some_uptodate = 0;
-		foreach $comp ( @Components )
+		} elsif ($inp =~ /[iI]/ )
 		{
-			if ($installState{$comp} == $State_UpToDate) {
-				$have_some_uptodate = 1;
-			}
-			if ($installState{$comp} == $State_Install
-				|| $installState{$comp} == $State_UpToDate) {
-				$install_list .= " $comp ";
-			}
-			if ($installState{$comp} == $State_Install) {
-				$installing_list .= " $comp ";
-			}
-			if ($installState{$comp} == $State_Uninstall) {
-				$uninstalling_list .= " $comp ";
-			}
-		}
-
-		# first uninstall what will be removed, do this in reverse order
-		# so dependency issues are avoided
-		foreach $comp ( reverse(@Components) ) {
-			if ($installState{$comp} == $State_Uninstall) {
-				comp_uninstall($comp, $install_list, $uninstalling_list);
-				$installed{$comp} = 0;
-			}
-		}
-		if ( "$WrapperComponent" ne "" && "$installing_list" eq "" && "$install_list" eq "" ) {
-			comp_uninstall($WrapperComponent, $install_list, $uninstalling_list);
-		}
-
-		if ($have_some_uptodate ) {
-			# determine if some up to date components need to be reinstalled
-			# for example due to a change in install prefix, install options ...
-			# to determine this run need_reinstall for all components which
-			# will be installed or are up to date.  Net result is we may change
-			# some or all components in State_UpToDate to State_Install
-
-			my $need_reinstall_all = 0;
-			my $need_reinstall_some = 0;
 			foreach $comp ( @Components )
 			{
-				if (($installState{$comp} == $State_Install
-						|| $installState{$comp} == $State_UpToDate)
-					&& $available{$comp} ) {
-					my $reins = comp_need_reinstall($comp,$install_list,$installing_list);
-					if ("$reins" eq "all") {
-						VerbosePrint("$comp needs reinstall all\n");
-						$need_reinstall_all = 1;
-						last;
-					} elsif ("$reins" eq "this") {
-						if ($installState{$comp} == $State_UpToDate
-							&& $available{$comp} ) {
-							VerbosePrint("$comp needs reinstall\n");
-							$installState{$comp} = $State_Install;
-							$need_reinstall_some = 1;
-						}
-					}
+				if ( $available{$comp} ) {
+					$installState{$comp} = $State_Install;
 				}
 			}
-			if ($need_reinstall_all || $need_reinstall_some) {
-				if ($need_reinstall_all) {
-					NormalPrint "INSTALL options require Reinstall of all UpToDate Components\n";
-				} else {
-					NormalPrint "Reinstall of some UpToDate Components is Required\n";
-				}
-				$installing_list  = "";	# recompute
+			$newstate = $State_Install;
+		} elsif ($inp =~ /[uU]/ )
+		{
+			foreach $comp ( @Components )
+			{
+				$installState{$comp} = $State_Uninstall;
+			}
+			$newstate = $State_Uninstall;
+		} elsif ($inp =~ /[0123456789abcdefABCDEF]/) {
+			my $value = hex($inp);
+			my $index = get_comp_subscript($firstline, $maxlines, $value);
+			if ( $value < $maxlines && $index < scalar(@Components)) {
+				my $selected = $Components[$index];
+				$installState{$selected} = shiftstate($installState{$selected},$installed{$selected},$available{$selected},$isupgrade{$selected});
+				$newstate = $installState{$selected};
+			}
+		}
+
+		if (! will_be_on_system($newstate)) {
+			# something is being uninstalled or not installed
+			# loop through a few times to catch all coreqs, prereqs
+			# and coreqs of prereqs
+			my $done = 0;	# we are done if we loop through with no changes
+			while (! $done) {
+				$done=1;
 				foreach $comp ( @Components )
 				{
-					if ($need_reinstall_all
-						&& $installState{$comp} == $State_UpToDate
-						&& $available{$comp} ) {
-						$installState{$comp} = $State_Install;
+					if (! will_be_on_system($installState{$comp})) {
+						# comp will not be on system, make sure all its
+						# pre/coreqs will also not be on system
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($c, $comp)
+								&& will_be_on_system($installState{$c})) {
+								$statusMessage{$c}="requires $ComponentInfo{$comp}{'Name'}";
+								$boldMessage{$c}=1;
+								$installState{$c}=$installed{$c}?$State_Uninstall:$State_DoNotInstall;
+								$done=0;
+							}
+						}
 					}
-					if ($installState{$comp} == $State_Install) {
-						$installing_list .= " $comp ";
-					}
-				}
-			}
-		}
-		# check OS pre-reqs for all components which will be installed
-		my $have_all_os_prereqs=1;
-		foreach $comp ( @Components )
-		{
-			if ($installState{$comp} == $State_Install) {
-				if (0 != comp_check_os_prereqs($comp)) {
-					$have_all_os_prereqs=0;
-					NormalPrint "Lacking OS Prereqs for $ComponentInfo{$comp}{'Name'}\n";
-				}
-			}
-		}
-		if (! $have_all_os_prereqs) {
-			HitKeyCont;
-			goto DONE;
-		}
-
-		# run pre-install for all components which will be installed
-		# Reverse the order to avoid dependency issues
-		foreach $comp ( reverse(@Components) )
-		{
-			if ($installState{$comp} == $State_Install) {
-				if (0 != comp_preinstall($comp,$install_list,$installing_list)) {
-					NormalPrint "Unable to Prepare $ComponentInfo{$comp}{'Name'} for Install\n";
-					HitKeyCont;
-					goto DONE;
-				}
-			}
-		}
-
-		# Now install components
-		if ( "$WrapperComponent" ne "" && "$installing_list" ne "" ) {
-			comp_install($WrapperComponent, $install_list, $installing_list);
-		}
-		foreach $comp ( @Components )
-		{
-			if ($installState{$comp} == $State_Install) {
-				comp_install($comp, $install_list, $installing_list);
-				if ( $ComponentInfo{$comp}{'HasFirmware'} ) {
-					$updateFirmware=1;
-				}
-			}
-		}
-
-		# run post-install for all components which were installed
-		foreach $comp ( @Components )
-		{
-			if ($installState{$comp} == $State_Install) {
-				comp_postinstall($comp, $install_list, $installing_list);
-			}
-		}
-
-		%installed = ();
-		if ( $Default_Prompt ) {
-			foreach $comp ( @Components )
-			{
-				$installed{$comp} = 0;
-			}
-			# limit autostart to newly installed components with a
-			# default start.  Also include their start prereqs.
-			# Note start prereqs are all inclusive, so we don't need to
-			# find prereqs of prereqs
-			foreach $comp ( @Components )
-			{
-				if ($installState{$comp} == $State_Install
-					&& $ComponentInfo{$comp}{'HasStart'}
-					&& ($Default_SameAutostart
-						|| $ComponentInfo{$comp}{'DefaultStart'}) ) {
-					$installed{$comp} = 1;
-					foreach my $c ( @Components ) {
-						if (comp_has_startprereq_of($comp, $c)) {
-							$installed{$c} = 1;
+					if ($ComponentInfo{$comp}{'Hidden'}) {
+						# if no longer needed, also remove it
+						my $needed = 0;	# is $comp needed
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($c, $comp)
+								&& will_be_on_system($installState{$c})) {
+								$needed=1;
+							}
+						}
+						if (! $needed && will_be_on_system($installState{$comp})) {
+							$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
+							$done=0;
 						}
 					}
 				}
 			}
-		} else {
+		} elsif (will_be_on_system($newstate)) {
+			# something is being installed or left on system
+			# loop through a few times to catch all coreqs, prereqs
+			# and coreqs of prereqs
+			my $done = 0;	# we are done if we loop through with no changes
+			my $forcedone = 0;	# used to break infinite loop in subtle issue below
+			while (! $forcedone && ! $done) {
+				$done=1;
+				foreach $comp ( @Components )
+				{
+					if (will_be_on_system($installState{$comp})) {
+						# comp will be on system, make sure all its
+						# pre/coreqs will also be on system
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($comp, $c)
+								&& ! will_be_on_system($installState{$c})) {
+								if (! $available{$c} ) {
+									# pre/coreq $c not available, can't install comp
+									$statusMessage{$comp}="requires $ComponentInfo{$c}{'Name'}";
+									$boldMessage{$comp}=1;
+									$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
+									# this should not occur for coreqs
+									# however there are subtle effects here.
+									# If we install an item which has a prereq
+									# whose prereq is not available we could get
+									# stuck with an invalid combination since we
+									# will have marked the 1st prereq installed,
+									# found the 2nd prereq problem
+									# unmarked the 1st prereq but still have
+									# left the original item to be installed
+									# bail to avoid infinite loop
+									$forcedone=1;
+									last;
+								} else {
+									# also install $c
+									$statusMessage{$c}="needed by $ComponentInfo{$comp}{'Name'}";
+									$boldMessage{$c}=1;
+									$installState{$c}=$State_Install;
+								}
+								$done=0;
+							}
+						}
+					}
+					if ($ComponentInfo{$comp}{'Hidden'} && $available{$comp}
+						&& will_be_on_system($installState{$comp})) {
+						# if all prereqs being reinstalled also reinstall it
+						my $reinstall = 1;	# no already installed dependents
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($c, $comp)
+								&& will_be_on_system($installState{$c})
+								&& $installState{$c} != $State_Install) {
+								$reinstall=0;
+							}
+						}
+						if ($reinstall) {
+							$installState{$comp}=$State_Install;
+							# no need to force another loop, didn't change
+							# will_be_on_system($comp)
+						}
+					}
+				}
+			}
+		}
+
+		if ($inp =~ /[pP]/) {
+			# perform the install
+			my $updateFirmware=0;
+
+			# build a list of what will be installed after installation completes
+			# use a space separate string so easier to pass and can be "grep'ed"
+			my $install_list = "";
+			my $installing_list = "";
+			my $uninstalling_list = "";
+			my $have_some_uptodate = 0;
 			foreach $comp ( @Components )
 			{
+				if ($installState{$comp} == $State_UpToDate) {
+					$have_some_uptodate = 1;
+				}
 				if ($installState{$comp} == $State_Install
 					|| $installState{$comp} == $State_UpToDate) {
-					$installed{$comp} = 1;
-				} else {
+					$install_list .= " $comp ";
+				}
+				if ($installState{$comp} == $State_Install) {
+					$installing_list .= " $comp ";
+				}
+				if ($installState{$comp} == $State_Uninstall) {
+					$uninstalling_list .= " $comp ";
+				}
+			}
+
+			# first uninstall what will be removed, do this in reverse order
+			# so dependency issues are avoided
+			foreach $comp ( reverse(@Components) ) {
+				if ($installState{$comp} == $State_Uninstall) {
+					comp_uninstall($comp, $install_list, $uninstalling_list);
 					$installed{$comp} = 0;
 				}
 			}
+			if ( "$WrapperComponent" ne "" && "$installing_list" eq "" && "$install_list" eq "" ) {
+				comp_uninstall($WrapperComponent, $install_list, $uninstalling_list);
+			}
+
+			if ($have_some_uptodate ) {
+				# determine if some up to date components need to be reinstalled
+				# for example due to a change in install prefix, install options ...
+				# to determine this run need_reinstall for all components which
+				# will be installed or are up to date.  Net result is we may change
+				# some or all components in State_UpToDate to State_Install
+
+				my $need_reinstall_all = 0;
+				my $need_reinstall_some = 0;
+				foreach $comp ( @Components )
+				{
+					if (($installState{$comp} == $State_Install
+							|| $installState{$comp} == $State_UpToDate)
+						&& $available{$comp} ) {
+						my $reins = comp_need_reinstall($comp,$install_list,$installing_list);
+						if ("$reins" eq "all") {
+							VerbosePrint("$comp needs reinstall all\n");
+							$need_reinstall_all = 1;
+							last;
+						} elsif ("$reins" eq "this") {
+							if ($installState{$comp} == $State_UpToDate
+								&& $available{$comp} ) {
+								VerbosePrint("$comp needs reinstall\n");
+								$installState{$comp} = $State_Install;
+								$need_reinstall_some = 1;
+							}
+						}
+					}
+				}
+				if ($need_reinstall_all || $need_reinstall_some) {
+					if ($need_reinstall_all) {
+						NormalPrint "INSTALL options require Reinstall of all UpToDate Components\n";
+					} else {
+						NormalPrint "Reinstall of some UpToDate Components is Required\n";
+					}
+					$installing_list  = "";	# recompute
+					foreach $comp ( @Components )
+					{
+						if ($need_reinstall_all
+							&& $installState{$comp} == $State_UpToDate
+							&& $available{$comp} ) {
+							$installState{$comp} = $State_Install;
+						}
+						if ($installState{$comp} == $State_Install) {
+							$installing_list .= " $comp ";
+						}
+					}
+				}
+			}
+			# check OS pre-reqs for all components which will be installed
+			my $have_all_os_prereqs=1;
+			foreach $comp ( @Components )
+			{
+				if ($installState{$comp} == $State_Install) {
+					if (0 != comp_check_os_prereqs($comp)) {
+						$have_all_os_prereqs=0;
+						NormalPrint "Lacking OS Prereqs for $ComponentInfo{$comp}{'Name'}\n";
+					}
+				}
+			}
+			if (! $have_all_os_prereqs) {
+				HitKeyCont;
+				return
+			}
+
+			# run pre-install for all components which will be installed
+			# Reverse the order to avoid dependency issues
+			foreach $comp ( reverse(@Components) )
+			{
+				if ($installState{$comp} == $State_Install) {
+					if (0 != comp_preinstall($comp,$install_list,$installing_list)) {
+						NormalPrint "Unable to Prepare $ComponentInfo{$comp}{'Name'} for Install\n";
+						HitKeyCont;
+						return
+					}
+				}
+			}
+
+			# Now install components
+			if ( "$WrapperComponent" ne "" && "$installing_list" ne "" ) {
+				comp_install($WrapperComponent, $install_list, $installing_list);
+			}
+			foreach $comp ( @Components )
+			{
+				if ($installState{$comp} == $State_Install) {
+					comp_install($comp, $install_list, $installing_list);
+					if ( $ComponentInfo{$comp}{'HasFirmware'} ) {
+						$updateFirmware=1;
+					}
+				}
+			}
+
+			# run post-install for all components which were installed
+			foreach $comp ( @Components )
+			{
+				if ($installState{$comp} == $State_Install) {
+					comp_postinstall($comp, $install_list, $installing_list);
+				}
+			}
+
+			%installed = ();
+			if ( $Default_Prompt ) {
+				foreach $comp ( @Components )
+				{
+					$installed{$comp} = 0;
+				}
+				# limit autostart to newly installed components with a
+				# default start.  Also include their start prereqs.
+				# Note start prereqs are all inclusive, so we don't need to
+				# find prereqs of prereqs
+				foreach $comp ( @Components )
+				{
+					if ($installState{$comp} == $State_Install
+						&& $ComponentInfo{$comp}{'HasStart'}
+						&& ($Default_SameAutostart
+							|| $ComponentInfo{$comp}{'DefaultStart'}) ) {
+						$installed{$comp} = 1;
+						foreach my $c ( @Components ) {
+							if (comp_has_startprereq_of($comp, $c)) {
+								$installed{$c} = 1;
+							}
+						}
+					}
+				}
+			} else {
+				foreach $comp ( @Components )
+				{
+					if ($installState{$comp} == $State_Install
+						|| $installState{$comp} == $State_UpToDate) {
+						$installed{$comp} = 1;
+					} else {
+						$installed{$comp} = 0;
+					}
+				}
+			}
+			show_autostart_menu(0);
+
+			# show_autostart_menu unconditionally requested user hit return,
+			# update_hca_firmware will also as needed, so only request return below
+			# if one of these functions does something.
+			my $need_ret = 0;
+			$need_ret |= check_depmod;
+			$need_ret |= check_ldconfig;
+			$need_ret |= check_need_reboot;
+			if ($need_ret) {
+				HitKeyCont;
+			}
+			return;
+		# we had an error above
+			if (  $Default_Prompt ) {
+				$exit_code = 1;
+				return
+			}
 		}
-		show_autostart_menu(0, %installed);
-
-#		if ( $updateFirmware && ! $Skip_FirmwareUpgrade ) {
-#			update_hca_firmware;
-#		}
-
-		# show_autostart_menu unconditionally requested user hit return,
-		# update_hca_firmware will also as needed, so only request return below
-		# if one of these functions does something.
-		my $need_ret = 0;
-		$need_ret |= check_depmod;
-		$need_ret |= check_ldconfig;
-		$need_ret |= check_need_reboot;
-		if ($need_ret) {
-			HitKeyCont;
-		}
-		return;
 	}
-
-	# we had an error above
-DONE:
-	if ( ! $Default_Prompt ) {
-		goto DO_INS;
-	}
-	$exit_code = 1;
 }
 
 sub show_installed($)
@@ -1512,233 +1586,230 @@ sub show_uninstall_menu($)
 		}
 		$installState{$comp}= setstate($installed{$comp},0,0,$State_DoNotInstall);
 	}
-DO_UNINS:
-	if ( $Default_Uninstall) {
-		foreach $comp ( @Components )
-		{
-			$installState{$comp} = $State_Uninstall;
-		}
-		$newstate = $State_Uninstall;
-		$inp="P";
-	} elsif ( $Default_CompUninstall) {
-		foreach $comp ( @Components )
-		{
-			if ( $Default_Components{$comp} )
+	do {
+		if ( $Default_Uninstall) {
+			foreach $comp ( @Components )
 			{
 				$installState{$comp} = $State_Uninstall;
 			}
-		}
-		$newstate = $State_Uninstall;
-		$inp="P";
-	} else {
-		system "clear";
-		printf ("$BRAND OPA Uninstall Menu ($VERSION)\n\n");
-		my $screens = int((scalar(@Components)-$num_hidden_comps + $maxlines-1)/$maxlines);
-		if ($screens > 1 ) {
-			printf ("Please Select Uninstall Action (screen %d of $screens):\n",
-						$firstline/$maxlines+1);
-		} else {
-			printf ("Please Select Uninstall Action:\n");
-		}
-		my $index=0;
-		for($i=0; $i < scalar(@Components); $i++)
-		{
-			$comp = $Components[$i];
-			if ($index >= $firstline && $index < $firstline+$maxlines) {
-				if ($showversion && "$statusMessage{$comp}" eq ""
-					&& $installed{$comp}) {
-					$statusMessage{$comp} = $installed_version{$comp};
-					$boldMessage{$comp} = 0;
+			$newstate = $State_Uninstall;
+			$inp="P";
+		} elsif ( $Default_CompUninstall) {
+			foreach $comp ( @Components )
+			{
+				if ( $Default_Components{$comp} )
+				{
+					$installState{$comp} = $State_Uninstall;
 				}
-				if (! $ComponentInfo{$comp}{'Hidden'}) {
-					printf ("%x) %-20s ", $index-$firstline, $ComponentInfo{$comp}{'Name'});
-					printInstallState($installed{$comp}, ($installState{$comp} == $State_Uninstall),
-						$boldMessage{$comp}, $statusMessage{$comp});
+			}
+			$newstate = $State_Uninstall;
+			$inp="P";
+		} else {
+			system "clear";
+			printf ("$BRAND OPA Uninstall Menu ($VERSION)\n\n");
+			my $screens = int((scalar(@Components)-$num_hidden_comps + $maxlines-1)/$maxlines);
+			if ($screens > 1 ) {
+				printf ("Please Select Uninstall Action (screen %d of $screens):\n",
+							$firstline/$maxlines+1);
+			} else {
+				printf ("Please Select Uninstall Action:\n");
+			}
+			my $index=0;
+			for($i=0; $i < scalar(@Components); $i++)
+			{
+				$comp = $Components[$i];
+				if ($index >= $firstline && $index < $firstline+$maxlines) {
+					if ($showversion && "$statusMessage{$comp}" eq ""
+						&& $installed{$comp}) {
+						$statusMessage{$comp} = $installed_version{$comp};
+						$boldMessage{$comp} = 0;
+					}
+					if (! $ComponentInfo{$comp}{'Hidden'}) {
+						printf ("%x) %-20s ", $index-$firstline, $ComponentInfo{$comp}{'Name'});
+						printInstallState($installed{$comp}, ($installState{$comp} == $State_Uninstall),
+							$boldMessage{$comp}, $statusMessage{$comp});
+						$index++;
+					}
+				} elsif (! $ComponentInfo{$comp}{'Hidden'}) {
 					$index++;
 				}
-			} elsif (! $ComponentInfo{$comp}{'Hidden'}) {
-				$index++;
+			}
+
+			printf ("\n");
+			if ($screens > 1 ) {
+				printf ("N) Next Screen\n");
+			}
+			printf (  "P) Perform the selected actions\n");
+			printf (  "U) Uninstall All\n");
+			printf (  "X) Return to Previous Menu (or ESC)\n");
+				
+
+			$inp = getch();
+		
+			if ($inp =~ /[qQ]/ || $inp =~ /[xX]/ || ord($inp) == $KEY_ESC)
+			{
+				return;
+			}
+
+			# do not clear status messages when jump between screens
+			if ($inp !~ /[nN]/ )
+			{
+				%statusMessage = ();
+				%boldMessage = ();
 			}
 		}
 
-		printf ("\n");
-		if ($screens > 1 ) {
-			printf ("N) Next Screen\n");
-		}
-		printf (  "P) Perform the selected actions\n");
-		printf (  "U) Uninstall All\n");
-		printf (  "X) Return to Previous Menu (or ESC)\n");
-			
-
-		$inp = getch();
-	
-		if ($inp =~ /[qQ]/ || $inp =~ /[xX]/ || ord($inp) == $KEY_ESC)
+		if ($inp =~ /[nN]/ )
 		{
+			if (scalar(@Components) > $maxlines) {
+				$firstline += $maxlines;
+				if ($firstline >= scalar(@Components)) {
+					$firstline=0;
+				}
+			}
+		} elsif ($inp =~ /[uU]/ )
+		{
+			foreach $comp ( @Components )
+			{
+				$installState{$comp} = $State_Uninstall;
+			}
+			$newstate = $State_Uninstall;
+		}
+		elsif ($inp =~ /[0123456789abcdefABCDEF]/)
+		{
+			my $value = hex($inp);
+			my $index = get_comp_subscript($firstline, $maxlines, $value);
+			if ( $value < $maxlines && $index < scalar(@Components)) {
+				my $selected = $Components[$index];
+				$installState{$selected} = shiftstate($installState{$selected},$installed{$selected},0,0);
+				$newstate = $installState{$selected};
+			}
+		}
+
+		if (! will_be_on_system($newstate)) {
+			my $done = 0;	# we are done if we loop through with no changes
+			# something is being uninstalled or not installed
+			# loop through a few times to catch all coreqs, prereqs
+			# and coreqs of prereqs
+			while (! $done) {
+				$done=1;
+				foreach $comp ( @Components )
+				{
+					if (! will_be_on_system($installState{$comp})) {
+						# comp will not be on system, make sure all its
+						# pre/coreqs will also not be on system
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($c, $comp)
+								&& will_be_on_system($installState{$c})) {
+								$statusMessage{$c}="requires $ComponentInfo{$comp}{'Name'}";
+								$boldMessage{$c}=1;
+								$installState{$c}=$installed{$c}?$State_Uninstall:$State_DoNotInstall;
+								$done=0;
+							}
+						}
+					}
+					if ($ComponentInfo{$comp}{'Hidden'}) {
+						# if no longer needed, also remove it
+						my $needed = 0;	# is $comp needed
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($c, $comp)
+								&& will_be_on_system($installState{$c})) {
+								$needed=1;
+							}
+						}
+						if (! $needed && will_be_on_system($installState{$comp})) {
+							$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
+							$done=0;
+						}
+					}
+				}
+			}
+		} elsif (will_be_on_system($newstate)) {
+			# something is being left on system
+			# loop through a few times to catch all coreqs, prereqs
+			# and coreqs of prereqs
+			my $done = 0;	# we are done if we loop through with no changes
+			my $forcedone = 0;	# used to force infinite loop in subtle issue below
+			while (! $forcedone && ! $done) {
+				$done=1;
+				foreach $comp ( @Components )
+				{
+					if (will_be_on_system($installState{$comp})) {
+						# comp will be on system, make sure all its
+						# pre/coreqs will also be on system
+						foreach my $c ( @Components )
+						{
+							if (comp_has_req_of($comp, $c)
+								&& ! will_be_on_system($installState{$c})) {
+								if (! $installed{$c} ) {
+									# pre/coreq $c not installed, can't keep comp
+									# this is not expected to occur, but is
+									# a safety net for corrupted systems
+									$statusMessage{$comp}="requires $ComponentInfo{$c}{'Name'}";
+									$boldMessage{$comp}=1;
+									$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
+									# bail to avoid infinite loop, especially
+									# for prereq chains and missing coreqs
+									# see install_menu discussion for a similar
+									# related issue
+									$forcedone=1;
+									last;
+								} else {
+									# also install $c
+									$statusMessage{$c}="needed by $ComponentInfo{$comp}{'Name'}";
+									$boldMessage{$c}=1;
+									$installState{$c}=$State_Install;
+								}
+								$done=0;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if ($inp =~ /[pP]/)
+		{
+			# build a list of what will be installed after installation completes
+			# use a space separate string so easier to pass and can be "grep'ed"
+			my $install_list = "";
+			my $uninstalling_list = "";
+			foreach $comp ( @Components )
+			{
+				if ($installState{$comp} == $State_Install
+					|| $installState{$comp} == $State_UpToDate) {
+					$install_list .= " $comp ";
+				}
+				if ($installState{$comp} == $State_Uninstall) {
+					$uninstalling_list .= " $comp ";
+				}
+			}
+
+			# perform the uninstall, work backwards through list
+			foreach $comp ( reverse(@Components) )
+			{
+				if ($installState{$comp} == $State_Uninstall)
+				{
+					comp_uninstall($comp, $install_list, $uninstalling_list);
+					$installed{$comp} = 0;
+				}
+			}
+			if ( "$WrapperComponent" ne "" && "$install_list" eq "" ) {
+				comp_uninstall($WrapperComponent, $install_list, $uninstalling_list);
+			}
+			# since we did an uninstall should request a return
+			my $need_ret = 1;
+			$need_ret |= check_depmod;
+			$need_ret |= check_ldconfig;
+			$need_ret |= check_need_reboot;
+			if ($need_ret) {
+				HitKeyCont;
+			}
 			return;
 		}
-
-		# do not clear status messages when jump between screens
-		if ($inp !~ /[nN]/ )
-		{
-			%statusMessage = ();
-			%boldMessage = ();
-		}
-	}
-
-	if ($inp =~ /[nN]/ )
-	{
-		if (scalar(@Components) > $maxlines) {
-			$firstline += $maxlines;
-			if ($firstline >= scalar(@Components)) {
-				$firstline=0;
-			}
-		}
-	} elsif ($inp =~ /[uU]/ )
-	{
-		foreach $comp ( @Components )
-		{
-			$installState{$comp} = $State_Uninstall;
-		}
-		$newstate = $State_Uninstall;
-	}
-	elsif ($inp =~ /[0123456789abcdefABCDEF]/)
-	{
-		my $value = hex($inp);
-		my $index = get_comp_subscript($firstline, $maxlines, $value);
-		if ( $value < $maxlines && $index < scalar(@Components)) {
-			my $selected = $Components[$index];
-			$installState{$selected} = shiftstate($installState{$selected},$installed{$selected},0,0);
-			$newstate = $installState{$selected};
-		}
-	}
-
-	if (! will_be_on_system($newstate)) {
-		my $done = 0;	# we are done if we loop through with no changes
-		# something is being uninstalled or not installed
-		# loop through a few times to catch all coreqs, prereqs
-		# and coreqs of prereqs
-		while (! $done) {
-			$done=1;
-			foreach $comp ( @Components )
-			{
-				if (! will_be_on_system($installState{$comp})) {
-					# comp will not be on system, make sure all its
-					# pre/coreqs will also not be on system
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($c, $comp)
-							&& will_be_on_system($installState{$c})) {
-							$statusMessage{$c}="requires $ComponentInfo{$comp}{'Name'}";
-							$boldMessage{$c}=1;
-							$installState{$c}=$installed{$c}?$State_Uninstall:$State_DoNotInstall;
-							$done=0;
-						}
-					}
-				}
-				if ($ComponentInfo{$comp}{'Hidden'}) {
-					# if no longer needed, also remove it
-					my $needed = 0;	# is $comp needed
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($c, $comp)
-							&& will_be_on_system($installState{$c})) {
-							$needed=1;
-						}
-					}
-					if (! $needed && will_be_on_system($installState{$comp})) {
-						$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
-						$done=0;
-					}
-				}
-			}
-		}
-	} elsif (will_be_on_system($newstate)) {
-		# something is being left on system
-		# loop through a few times to catch all coreqs, prereqs
-		# and coreqs of prereqs
-		my $done = 0;	# we are done if we loop through with no changes
-		my $forcedone = 0;	# used to force infinite loop in subtle issue below
-		while (! $forcedone && ! $done) {
-			$done=1;
-			foreach $comp ( @Components )
-			{
-				if (will_be_on_system($installState{$comp})) {
-					# comp will be on system, make sure all its
-					# pre/coreqs will also be on system
-					foreach my $c ( @Components )
-					{
-						if (comp_has_req_of($comp, $c)
-							&& ! will_be_on_system($installState{$c})) {
-							if (! $installed{$c} ) {
-								# pre/coreq $c not installed, can't keep comp
-								# this is not expected to occur, but is
-								# a safety net for corrupted systems
-								$statusMessage{$comp}="requires $ComponentInfo{$c}{'Name'}";
-								$boldMessage{$comp}=1;
-								$installState{$comp}=$installed{$comp}?$State_Uninstall:$State_DoNotInstall;
-								# bail to avoid infinite loop, especially
-								# for prereq chains and missing coreqs
-								# see install_menu discussion for a similar
-								# related issue
-								$forcedone=1;
-								last;
-							} else {
-								# also install $c
-								$statusMessage{$c}="needed by $ComponentInfo{$comp}{'Name'}";
-								$boldMessage{$c}=1;
-								$installState{$c}=$State_Install;
-							}
-							$done=0;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if ($inp =~ /[pP]/)
-	{
-		# build a list of what will be installed after installation completes
-		# use a space separate string so easier to pass and can be "grep'ed"
-		my $install_list = "";
-		my $uninstalling_list = "";
-		foreach $comp ( @Components )
-		{
-			if ($installState{$comp} == $State_Install
-				|| $installState{$comp} == $State_UpToDate) {
-				$install_list .= " $comp ";
-			}
-			if ($installState{$comp} == $State_Uninstall) {
-				$uninstalling_list .= " $comp ";
-			}
-		}
-
-		# perform the uninstall, work backwards through list
-		foreach $comp ( reverse(@Components) )
-		{
-			if ($installState{$comp} == $State_Uninstall)
-			{
-				comp_uninstall($comp, $install_list, $uninstalling_list);
-				$installed{$comp} = 0;
-			}
-		}
-		if ( "$WrapperComponent" ne "" && "$install_list" eq "" ) {
-			comp_uninstall($WrapperComponent, $install_list, $uninstalling_list);
-		}
-		# since we did an uninstall should request a return
-		my $need_ret = 1;
-		$need_ret |= check_depmod;
-		$need_ret |= check_ldconfig;
-		$need_ret |= check_need_reboot;
-		if ($need_ret) {
-			HitKeyCont;
-		}
-		return;
-	}
-
-	if ( ! $Default_Prompt ) {
-		goto DO_UNINS;
-	}
+	}while( !$Default_Prompt )
 }
 
 sub reconfig_autostart()
@@ -1758,7 +1829,7 @@ sub reconfig_autostart()
 	}
 	if (! $Default_Autostart) {
 		# interactive menu, use previous value as default
-		show_autostart_menu(1, %installed);
+		show_autostart_menu(1);
 	} else {
 		if ( $Default_DisableAutostart) {
 			# build list of components/subcomponents to disable
@@ -1787,7 +1858,7 @@ sub reconfig_autostart()
 		}
 		if (! $Default_DisableAutostart && ! $Default_EnableAutostart) {
 			# use component specific default as value
-			show_autostart_menu(0, %installed);
+			show_autostart_menu(2);
 		}
 	}
 }
@@ -1795,11 +1866,12 @@ sub reconfig_autostart()
 # states:
 # $Start_Start - Enable Autostart
 # $Start_NoStart - Disable Autostart
-sub printStartState($$$)
+sub printStartState($$$$)
 {
 	my $enabled     = shift();
 	my $boldmessage = shift();
 	my $message   = shift();
+	my $state_change = shift();
 
 	if ( $enabled )
 	{
@@ -1807,7 +1879,12 @@ sub printStartState($$$)
 	} else {
 		print RED, "[Disable]", RESET;
 	}
-
+	if ( $state_change )
+	{
+		print " *";
+	} else {
+		print "  ";
+	}
 	if ("$message" ne "" && $boldmessage) {
 		print BOLD, RED "$message", RESET, "\n";
 	} else {
@@ -1841,10 +1918,9 @@ sub get_subscript($$$@)
 	}
 	return $i	# invalid entry return 1 past number of Components
 }
-sub show_autostart_menu($%)
+sub show_autostart_menu($)
 {
-	my $usePrevious = shift(); # should previous setting be used as default
-	my %selections = ( @_ );	# components to show
+	my $sel_mode = shift(); # possible values are: 1: keep previous, 0: use default, 2: enable
 
 	my $inp;
 	my @PromptAutostart = ();
@@ -1855,7 +1931,7 @@ sub show_autostart_menu($%)
 	my $i;
 	my $newenabled = 0;	# most recent state change for a comp
 	my $firstline = 0;
-	my $maxlines=14;
+	my $maxlines=13;
 
 	# figure out which to prompt for
 	# while selections may include SubComponents, we only look
@@ -1892,167 +1968,177 @@ sub show_autostart_menu($%)
 	foreach $comp ( @PromptAutostart )
 	{
 		DebugPrint("prompt for $comp\n");
-		if ($usePrevious) {
+		if ($sel_mode == 1) {
+			# keep previous
 			$enabled{$comp} = comp_IsAutostart2($comp);
+		} elsif ($sel_mode == 2) {
+			# enable
+			$enabled{$comp} = 1;
 		} else {
+			# use default
 			$enabled{$comp} = $ComponentInfo{$comp}{'DefaultStart'};
 		}
 	}
-DO_AUTOSTART:
-	if ( $Default_Prompt) {
-		$inp='P';
-	} else {
-		system "clear";        
-		printf ("$BRAND OPA Autostart ($VERSION $DBG_FREE) Menu\n\n");
-		my $screens = int((scalar(@PromptAutostart) + $maxlines-1)/$maxlines);
-		if ($screens > 1 ) {
-			printf ("Please Select Autostart Option (screen %d of $screens):\n",
-						$firstline/$maxlines+1);
+	while() {
+		if ( $Default_Prompt) {
+			$inp='P';
 		} else {
-			printf ("Please Select Autostart Option:\n");
-		}
-		my $index=0;
-		for ($i=0; $i < scalar(@PromptAutostart); $i++)
-		{
-			$comp = $PromptAutostart[$i];
-			if ($index >= $firstline && $index < $firstline+$maxlines) {
-				printf ("%x) %-34s", $index-$firstline, comp_autostart_desc($comp));
-				printStartState($enabled{$comp},
-								$boldMessage{$comp}, $statusMessage{$comp});
-				$index++;
+			system "clear";        
+			printf ("$BRAND OPA Autostart ($VERSION $DBG_FREE) Menu\n\n");
+			my $screens = int((scalar(@PromptAutostart) + $maxlines-1)/$maxlines);
+			if ($screens > 1 ) {
+				printf ("Please Select Autostart Option (screen %d of $screens):\n",
+							$firstline/$maxlines+1);
 			} else {
-				$index++;
+				printf ("Please Select Autostart Option:\n");
+			}
+			my $index=0;
+			for ($i=0; $i < scalar(@PromptAutostart); $i++)
+			{
+				$comp = $PromptAutostart[$i];
+				my $state_change = 0;
+				if( comp_IsAutostart2($comp) != $enabled{$comp} )
+				{
+					$state_change = 1;
+				}
+				if ($index >= $firstline && $index < $firstline+$maxlines) {
+					printf ("%x) %-32s", $index-$firstline, comp_autostart_desc($comp));
+					printStartState($enabled{$comp},
+									$boldMessage{$comp}, $statusMessage{$comp}, $state_change);
+					$index++;
+				} else {
+					$index++;
+				}
+			}
+			printf("\n*: new desired state\n");
+			printf ("\n");
+			if ($screens > 1 ) {
+				printf ("N) Next Screen\n");
+			}
+			printf (  "P) Perform the autostart changes\n");
+			printf (  "S) Autostart All                     R) Autostart None\n");
+			printf (  "X) Return to Previous Menu (or ESC)\n");	
+
+			$inp = getch();                
+			
+			if ($inp =~ /[qQ]/ || $inp =~ /[xX]/ || ord($inp) == $KEY_ESC ) 
+			{
+				return;
+			}
+
+			# do not clear status messages when jump between screens
+			if ($inp !~ /[nN]/ ) {
+				%statusMessage = ();
+				%boldMessage = ();
+			}
+
+		}
+
+		if ($inp =~ /[nN]/ )
+		{
+			if (scalar(@PromptAutostart) > $maxlines) {
+				$firstline += $maxlines;
+				if ($firstline >= scalar(@PromptAutostart)) {
+					$firstline=0;
+				}
+			}
+		} elsif ($inp =~ /[sS]/ )
+		{
+			foreach $comp ( @PromptAutostart )
+			{
+				$enabled{$comp} = 1;
+			}
+			$newenabled = 1;
+		} elsif ($inp =~ /[rR]/ )
+		{
+			foreach $comp ( @PromptAutostart )
+			{
+				$enabled{$comp} = 0;
+			}
+			$newenabled = 0;
+		} elsif ($inp =~ /[0123456789abcdefABCDEF]/) {
+			my $value = hex($inp);
+			my $index = get_subscript($firstline, $maxlines, $value, @PromptAutostart);
+			if ( $value < $maxlines && $index < scalar(@PromptAutostart)) {
+				my $selected = $PromptAutostart[$index];
+				$enabled{$selected} = ! $enabled{$selected};
+				$newenabled = $enabled{$selected};
 			}
 		}
-		
-		printf ("\n");
-		if ($screens > 1 ) {
-			printf ("N) Next Screen\n");
-		}
-		printf (  "P) Perform the autostart changes\n");
-		printf (  "S) Autostart All                     R) Autostart None\n");
-		printf (  "X) Return to Previous Menu (or ESC)\n");	
 
-		$inp = getch();                
-	        
-		if ($inp =~ /[qQ]/ || $inp =~ /[xX]/ || ord($inp) == $KEY_ESC ) 
-		{
+		if (! $newenabled) {
+			# something is being disabled
+			# loop through a few times to catch all prereqs
+			# and prereqs of prereqs
+			my $done = 0;	# we are done if we loop through with no changes
+			while (! $done) {
+				$done=1;
+				foreach $comp ( @PromptAutostart )
+				{
+					if (! $enabled{$comp}) {
+						# comp will be disabled, make sure all its
+						# startprereqs will also be disabled
+						foreach my $c ( @PromptAutostart )
+						{
+							if (comp_has_startprereq_of($c, $comp) && $enabled{$c}) {
+								$statusMessage{$c}="requires $ComponentInfo{$comp}{'Name'}";
+								$boldMessage{$c}=1;
+								$enabled{$c}=0;
+								$done=0;
+							}
+						}
+					}
+				}
+			}
+		} else {
+			# something is being disabled
+			# loop through a few times to catch all prereqs
+			my $done = 0;	# we are done if we loop through with no changes
+			while (! $done) {
+				$done=1;
+				foreach $comp ( @PromptAutostart )
+				{
+					if ($enabled{$comp}) {
+						# comp will be enabled, make sure all its
+						# startprereqs will also be enabled
+						foreach my $c ( @PromptAutostart )
+						{
+							if (comp_has_startprereq_of($comp, $c) && ! $enabled{$c}) {
+								# also enable $c
+								$statusMessage{$c}="needed by $ComponentInfo{$comp}{'Name'}";
+								$boldMessage{$c}=1;
+								$enabled{$c}=1;
+								$done=0;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if ($inp =~ /[pP]/) {
+			# perform the changes
+
+			# first disable, do this in reverse order
+			# so dependency issues are avoided
+			foreach $comp ( reverse(@PromptAutostart) ) {
+				if (! $enabled{$comp}) {
+					comp_disable_autostart2($comp,0);
+				}
+			}
+			# now enable
+			foreach $comp ( @PromptAutostart ) {
+				if ($enabled{$comp}) {
+					comp_enable_autostart2($comp,0);
+				}
+			}
+			HitKeyCont;
 			return;
 		}
-
-		# do not clear status messages when jump between screens
-		if ($inp !~ /[nN]/ ) {
-			%statusMessage = ();
-			%boldMessage = ();
-		}
-
-	}
-
-	if ($inp =~ /[nN]/ )
-	{
-		if (scalar(@PromptAutostart) > $maxlines) {
-			$firstline += $maxlines;
-			if ($firstline >= scalar(@PromptAutostart)) {
-				$firstline=0;
-			}
-		}
-	} elsif ($inp =~ /[sS]/ )
-	{
-		foreach $comp ( @PromptAutostart )
-		{
-			$enabled{$comp} = 1;
-		}
-		$newenabled = 1;
-	} elsif ($inp =~ /[rR]/ )
-	{
-		foreach $comp ( @PromptAutostart )
-		{
-			$enabled{$comp} = 0;
-		}
-		$newenabled = 0;
-	} elsif ($inp =~ /[0123456789abcdefABCDEF]/) {
-		my $value = hex($inp);
-		my $index = get_subscript($firstline, $maxlines, $value, @PromptAutostart);
-		if ( $value < $maxlines && $index < scalar(@PromptAutostart)) {
-			my $selected = $PromptAutostart[$index];
-			$enabled{$selected} = ! $enabled{$selected};
-			$newenabled = $enabled{$selected};
+		if ( $Default_Prompt ) {
+			return;
 		}
 	}
-
-	if (! $newenabled) {
-		# something is being disabled
-		# loop through a few times to catch all prereqs
-		# and prereqs of prereqs
-		my $done = 0;	# we are done if we loop through with no changes
-		while (! $done) {
-			$done=1;
-			foreach $comp ( @PromptAutostart )
-			{
-				if (! $enabled{$comp}) {
-					# comp will be disabled, make sure all its
-					# startprereqs will also be disabled
-					foreach my $c ( @PromptAutostart )
-					{
-						if (comp_has_startprereq_of($c, $comp) && $enabled{$c}) {
-							$statusMessage{$c}="requires $ComponentInfo{$comp}{'Name'}";
-							$boldMessage{$c}=1;
-							$enabled{$c}=0;
-							$done=0;
-						}
-					}
-				}
-			}
-		}
-	} else {
-		# something is being disabled
-		# loop through a few times to catch all prereqs
-		my $done = 0;	# we are done if we loop through with no changes
-		while (! $done) {
-			$done=1;
-			foreach $comp ( @PromptAutostart )
-			{
-				if ($enabled{$comp}) {
-					# comp will be enabled, make sure all its
-					# startprereqs will also be enabled
-					foreach my $c ( @PromptAutostart )
-					{
-						if (comp_has_startprereq_of($comp, $c) && ! $enabled{$c}) {
-							# also enable $c
-							$statusMessage{$c}="needed by $ComponentInfo{$comp}{'Name'}";
-							$boldMessage{$c}=1;
-							$enabled{$c}=1;
-							$done=0;
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if ($inp =~ /[pP]/) {
-		# perform the changes
-
-		# first disable, do this in reverse order
-		# so dependency issues are avoided
-		foreach $comp ( reverse(@PromptAutostart) ) {
-			if (! $enabled{$comp}) {
-				comp_disable_autostart2($comp,0);
-			}
-		}
-		# now enable
-		foreach $comp ( @PromptAutostart ) {
-			if ($enabled{$comp}) {
-				comp_enable_autostart2($comp,0);
-			}
-		}
-		HitKeyCont;
-		return;
-	}
-
-	if ( ! $Default_Prompt ) {
-		goto DO_AUTOSTART;
-	}
-	$exit_code = 1;	# unexpected
+		$exit_code = 1;	# unexpected
 }
 

@@ -1,12 +1,12 @@
 .\" .\" *********************************************************************
 .\" .\" *                                                                   *
-.\" .\" *             Copyright 2015-2018, Intel Corporation                *
+.\" .\" *             Copyright 2015-2019, Intel Corporation                *
 .\" .\" *                                                                   *
 .\" .\" *                       All Rights Reserved.                        *
 .\" .\" *                                                                   *
 .\" .\" *********************************************************************
 
-.TH opafmconfigcheck 8 "Intel Corporation" "Copyright(C) 2015\-2018" "Master map: IFSFFCLIRG (Man Page)" 
+.TH opafmconfigcheck 8 "Intel Corporation" "Copyright(C) 2015\-2019" "IFSFFCLIRG (Man Page)" 
 .SH NAME
 opafmconfigcheck
 
@@ -16,7 +16,7 @@ opafmconfigcheck
 Parses and verifies the configuration file of a Fabric Manager (FM). Displays debugging and status information.
 .SH Syntax
 .NL
-opafmconfigcheck [-s] [-c \fIconfig\(ulfile\fR] [-v] [-d]
+opafmconfigcheck [-s] [-c \fIconfig\(ulfile\fR] [-v] [-d] [-r \fIreconfig\(ulfile\fR]
 .SH Options
 .NL
 
@@ -35,7 +35,7 @@ Enables strict check mode; validates multicast and VF settings. This option poin
 .NL
 Specifies configuration file.
 .br
-(Default is /etc/opa-fm/opafm.xml)
+Default is /etc/opa-fm/opafm.xml.
 
 .TP 10
 -v 
@@ -46,6 +46,11 @@ Displays debugging and status information.
 -d 
 .NL
 Displays configuration checksum information.
+
+.TP 10
+-r \fIreconfig\(ulfile\fR 
+.NL
+Verifies that the \fIreconfig\(ulfile\fR is valid for dynamical reconfiguration.
 
 .SH Example 
 .NL
