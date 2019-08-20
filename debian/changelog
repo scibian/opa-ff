@@ -1,3 +1,9 @@
+opa-ff (10.9.2.0-7-1ifs+deb9sci9+opa10.9u2) scibian9+opa10.9; urgency=medium
+
+  *  New version release scibian9+opa10.9.
+
+ -- MHamed Bouaziz <mhamed-externe.bouaziz@edf.fr>  Tue, 20 Aug 2019 11:55:12 +0200
+
 opa-ff (10.9.2.0-7-1ifs+deb9sci9+opa10.9u1) scibian9+opa10.9; urgency=medium
 
   * New version release scibian9+opa10.9.
