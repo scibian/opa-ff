@@ -65,8 +65,6 @@ use strict;
 # ==========================================================================
 # OFA_Delta installation, includes Intel value-adding packages only
 
-my $default_prefix="/usr";
-
 # all kernel srpms
 # these are in the order we must build/process them to meet basic dependencies
 my @delta_kernel_srpms_rhel72 = ( 'kmod-ifs-kernel-updates' );
@@ -74,10 +72,12 @@ my @delta_kernel_srpms_rhel72 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel74_hfi2 = ( 'hfi2' );
 my @delta_kernel_srpms_sles12_sp2 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_sles12_sp3 = ( 'ifs-kernel-updates-kmp-default' );
+my @delta_kernel_srpms_sles12_sp4 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_sles15 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_rhel73 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel74 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel75 = ( 'kmod-ifs-kernel-updates' );
+my @delta_kernel_srpms_rhel76 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms = ( );
 
 # This provides information for all kernel srpms
@@ -141,6 +141,9 @@ sub init_delta_info($)
 		&& "$CUR_VENDOR_VER" eq 'ES123') {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_sles12_sp3 );
 	} elsif ("$CUR_DISTRO_VENDOR" eq 'SuSE'
+		&& "$CUR_VENDOR_VER" eq 'ES124') {
+		@delta_kernel_srpms = ( @delta_kernel_srpms_sles12_sp4 );
+	} elsif ("$CUR_DISTRO_VENDOR" eq 'SuSE'
 		&& "$CUR_VENDOR_VER" eq 'ES15') {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_sles15 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES74" ) {
@@ -149,6 +152,8 @@ sub init_delta_info($)
 		} else {
 			@delta_kernel_srpms = (@delta_kernel_srpms_rhel74);
 		}
+	} elsif ( "$CUR_VENDOR_VER" eq "ES76" ) {
+		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel76 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES75" ) {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel75 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES73" ) {
@@ -249,31 +254,6 @@ sub get_rpms_dir_delta($)
 	return $rpmsdir;
 }
 
-#
-# get prefix used when last built rpms
-sub get_delta_rpm_prefix($)
-{
-	my $rpmsdir = shift();
-
-	my $prefix_file = "$rpmsdir/Prefix";
-	if ( ! -e "$prefix_file") {
-		return "invalid and unknown";	# unknown, play it safe and rebuild
-	} else {
-		my $prefix = `cat $prefix_file 2>/dev/null`;
-		chomp $prefix;
-		return $prefix;
-	}
-}
-sub save_delta_rpm_prefix($$)
-{
-	my $rpmsdir = shift();
-	my $prefix = shift();
-
-	my $prefix_file = "$rpmsdir/Prefix";
-	system("mkdir -p $rpmsdir");
-	system "echo $prefix > $prefix_file";
-}
-
 # verify if all rpms have been built from the given srpm
 sub is_built_srpm($$)
 {
@@ -368,12 +348,6 @@ sub build_delta($$$$$$)
 		return 0;	# success
 	}
 
-# TBD - should we drop OFED_prefix support and simplify this?
-	my $prefix=$OFED_prefix;
-	if ("$prefix" ne get_delta_rpm_prefix($rpmsdir)) {
-		$force_kernel_srpm = 1;
-	}
-
 	if (! $force && ! $Default_Prompt && ! $force_kernel_srpm) {
 		my $choice = GetChoice("Rebuild OFA kernel SRPM (a=all, p=prompt per SRPM, n=only as needed?)", "n", ("a", "p", "n"));
 		if ("$choice" eq "a") {
@@ -434,11 +408,6 @@ sub build_delta($$$$$$)
 	# perform the builds
 	my $srcdir=$ComponentInfo{'opa_stack'}{'SrcDir'};
 
-	if ("$prefix" ne get_delta_rpm_prefix($rpmsdir)) {
-		#system("rm -rf $rpmsdir");	# get rid of stuff with old prefix
-		save_delta_rpm_prefix($rpmsdir, $prefix);
-	}
-
 	# use a different directory for BUILD_ROOT to limit conflict with OFED
 	if ("$build_temp" eq "" ) {
 		$build_temp = "/var/tmp/IntelOPA-DELTA";
@@ -475,10 +444,6 @@ sub build_delta($$$$$$)
 		$cmd .=		" --buildroot '${BUILD_ROOT}'";
 		$cmd .=		" --define 'build_root ${BUILD_ROOT}'";
 
-		# Prefix should be defined per package
-		$cmd .=		" --define '_prefix $prefix'";
-		$cmd .=		" --define '_exec_prefix $prefix'";
-		$cmd .=		" --define '_usr $prefix'";
 	   	$cmd .=		" --define 'kver $K_VER'";
 
 		$cmd .=		" $SRC_RPM";
@@ -531,10 +496,6 @@ sub uninstall_old_delta_rpms($$$)
 		@packages = (@packages, @{ $ComponentInfo{$i}{'UserRpms'}});
 		@packages = (@packages, @{ $ComponentInfo{$i}{'FirmwareRpms'}});
 		@packages = (@packages, @{ $ComponentInfo{$i}{'KernelRpms'}});
-# if ( "$comp" eq "mpi_selector" ) {
-# 	rest_comp="mpi_selector";
-# else
-#	uinstall_comp_rpms($i, @( ), @( ), $verbosity);
 	}
 
 	# workaround LAM and other MPIs usng mpi-selector
@@ -608,8 +569,8 @@ sub has_version_delta()
 	# different BASE_DIR. Ideally we shall figure out previous installation
 	# location and then check version_delta there. For now, we are doing it
 	# in static way by checking all possible locations.
-	return -e "$ROOT$BASE_DIR/version_delta"
-		|| -e "$ROOT$OLD_BASE_DIR/version_delta";
+	return -e "$BASE_DIR/version_delta"
+		|| -e "$OLD_BASE_DIR/version_delta";
 }
 
 sub media_version_delta()
@@ -673,41 +634,12 @@ sub preinstall_delta($$$)
 		if (0 != uninstall_prev_versions()) {
 			return 1;
 		}
-		if (ROOT_is_set()) {
-			# we will build in current image, so must uninstall
-			# in / as well as $ROOT (above)
-			my $save_ROOT=$ROOT;
-			$ROOT='/';
-			my $rc = uninstall_prev_versions();
-			$ROOT=$save_ROOT;
-			if (0 != $rc) {
-				return 1;
-			}
-		}
-
 		print_separator;
 		my $version=media_version_delta();
 		chomp $version;
 		printf("Preparing OFA $version $DBG_FREE for Install...\n");
 		LogPrint "Preparing OFA $version $DBG_FREE for Install for $CUR_OS_VER\n";
-		if (ROOT_is_set()) {
-			# this directory is used during rpm installs, create it as needed
-			if (0 != system("mkdir -p $ROOT/var/tmp")) {
-				NormalPrint("Unable to create $ROOT/var/tmp\n");
-				return 1;
-			}
-		}
-
-		if (ROOT_is_set()) {
-			# build in current image
-			my $save_ROOT=$ROOT;
-			$ROOT='/';
-			my $rc = build_delta("$install_list", "$installing_list", "$CUR_OS_VER",0,"",$OFED_force_rebuild);
-			$ROOT=$save_ROOT;
-			return $rc;
-		} else {
-			return build_delta("$install_list", "$installing_list", "$CUR_OS_VER",0,"",$OFED_force_rebuild);
-		}
+		return build_delta("$install_list", "$installing_list", "$CUR_OS_VER",0,"",$OFED_force_rebuild);
 	} else {
 		return 0;
 	}
@@ -724,7 +656,7 @@ sub delta_comp_change_opa_conf_param($$)
 	my $comp=shift();
 	my $newvalue=shift();
 
-	VerbosePrint("edit $ROOT/$OPA_CONFIG $comp StartUp set to '$newvalue'\n");
+	VerbosePrint("edit /$OPA_CONFIG $comp StartUp set to '$newvalue'\n");
 	foreach my $p ( @{ $ComponentInfo{$comp}{'StartupParams'} } ) {
 		change_opa_conf_param($p, $newvalue);
 	}
@@ -738,7 +670,7 @@ sub IsAutostart_delta_comp2($)
 {
 	my $comp = shift();	# component to check
 	my $WhichStartup = $ComponentInfo{$comp}{'StartupScript'};
-	my $ret = IsAutostart($WhichStartup);	# just to be safe, test this too
+	my $ret = $WhichStartup eq "" ? 1 : IsAutostart($WhichStartup);	# just to be safe, test this too
 
 	# to be true, all parameters must be yes
 	foreach my $p ( @{ $ComponentInfo{$comp}{'StartupParams'} } ) {
@@ -781,9 +713,7 @@ sub need_reinstall_delta_comp($$$)
 	my $install_list = shift();	# total that will be installed when done
 	my $installing_list = shift();	# what items are being installed/reinstalled
 
-	if (get_delta_rpm_prefix(delta_rpms_dir()) ne "$OFED_prefix" ) {
-		return "all";
-	} elsif (! comp_is_uptodate('opa_stack')) { # all delta_comp same version
+	if (! comp_is_uptodate('opa_stack')) { # all delta_comp same version
 		# on upgrade force reinstall to recover from uninstall of old rpms
 		return "all";
 	} else {
@@ -849,6 +779,9 @@ sub installed_delta_opa_stack()
 			return ( has_version_delta()
 			      && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 		}
+	} elsif ( "$CUR_VENDOR_VER" eq "ES76" ) {
+		return ( has_version_delta()
+				&& rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES75" ) {
 		return ( has_version_delta()
 				&& rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
@@ -856,6 +789,9 @@ sub installed_delta_opa_stack()
 		return ( has_version_delta()
 				&& rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq 'ES123' ) {
+		return ( has_version_delta()
+				&& rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq 'ES124' ) {
 		return ( has_version_delta()
 				&& rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq 'ES15' ) {
@@ -874,8 +810,8 @@ sub installed_opa_stack()
 # only called if installed_opa_stack is true
 sub installed_version_opa_stack()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return 'NONE';
 	}
@@ -895,8 +831,8 @@ sub run_uninstall($$$)
 	my $cmdargs = shift();
 
 	if ( "$cmd" ne "" && -e "$cmd" ) {
-		NormalPrint "\nUninstalling $stack: chroot /$ROOT $cmd $cmdargs\n";
-		if (0 != system("yes | chroot /$ROOT $cmd $cmdargs")) {
+		NormalPrint "\nUninstalling $stack: $cmd $cmdargs\n";
+		if (0 != system("yes | $cmd $cmdargs")) {
 			NormalPrint "Unable to uninstall $stack\n";
 			return 1;
 		}
@@ -923,16 +859,7 @@ sub build_opa_stack($$$$)
 	#	return 1;
 	#}
 
-	if (ROOT_is_set()) {
-		# build in current image
-		my $save_ROOT=$ROOT;
-		$ROOT='/';
-		my $rc =  build_delta("@Components", "@Components", $osver, $debug,$build_temp,$force);
-		$ROOT=$save_ROOT;
-		return $rc;
-	} else {
-		return build_delta("@Components", "@Components", $osver, $debug,$build_temp,$force);
-	}
+	return build_delta("@Components", "@Components", $osver, $debug,$build_temp,$force);
 }
 
 sub need_reinstall_opa_stack($$)
@@ -967,8 +894,9 @@ sub install_opa_stack($$)
 
 	# do the following before we set any system env vars
 	if ( $Default_SameAutostart ) {
-		# set env vars to -1, so we will keep previous config
-		set_opascript_env_vars(-1);
+		# set env vars to -1 for SRP and SRPT, so we keep the autostart option
+		setup_env("OPA_SRP_LOAD", -1);
+		setup_env("OPA_SRPT_LOAD", -1);
 	}
 
 	#override the udev permissions.
@@ -1009,8 +937,8 @@ sub postinstall_opa_stack($$)
 	my $install_list = shift();	# total that will be installed when done
 	my $installing_list = shift();	# what items are being installed/reinstalled
 
-	if ( -e "$ROOT/$OPA_CONFIG" ) {
-		if (0 == system("cp $ROOT/$OPA_CONFIG $ROOT/$OPA_CONFIG-save")) {
+	if ( -e "/$OPA_CONFIG" ) {
+		if (0 == system("cp /$OPA_CONFIG /$OPA_CONFIG-save")) {
 			$old_conf=1;
 		}
 	}
@@ -1031,7 +959,7 @@ sub postinstall_opa_stack($$)
 			foreach my $p ( @{ $ComponentInfo{$c}{'StartupParams'} } ) {
 				my $old_value = "";
 				if ( $old_conf ) {
-					$old_value = read_opa_conf_param($p, "$ROOT/$OPA_CONFIG-save");
+					$old_value = read_opa_conf_param($p, "/$OPA_CONFIG-save");
 				}
 				if ( "$old_value" eq "" ) {
 					$old_value = "no";
@@ -1070,17 +998,16 @@ sub uninstall_opa_stack($$)
 	# So we reset it back to zero here to ensure we will skip check in opa-scripts
 	setup_env("OPA_INSTALL_CALLER", 0);
 	uninstall_comp_rpms('opa_stack', ' --nodeps ', $install_list, $uninstalling_list, 'verbose');
-	#remove_modules_conf;
 	remove_limits_conf;
 
 	remove_udev_permissions;
 
-	system("rm -rf $ROOT$BASE_DIR/version_delta");
-	system("rm -rf $ROOT$OLD_BASE_DIR/version_delta");
-	system("rm -rf $ROOT/usr/lib/opa/.comp_delta.pl");
-	system "rmdir $ROOT/usr/lib/opa 2>/dev/null";	# remove only if empty
-	system "rmdir $ROOT$BASE_DIR 2>/dev/null";	# remove only if empty
-	system "rmdir $ROOT$OPA_CONFIG_DIR 2>/dev/null";	# remove only if empty
+	system("rm -rf $BASE_DIR/version_delta");
+	system("rm -rf $OLD_BASE_DIR/version_delta");
+	system("rm -rf /usr/lib/opa/.comp_delta.pl");
+	system "rmdir /usr/lib/opa 2>/dev/null";	# remove only if empty
+	system "rmdir $BASE_DIR 2>/dev/null";	# remove only if empty
+	system "rmdir $OPA_CONFIG_DIR 2>/dev/null";	# remove only if empty
 
 	need_reboot();
 	$ComponentWasInstalled{'opa_stack'}=0;
@@ -1151,7 +1078,13 @@ sub installed_intel_hfi()
 	} elsif ( "$CUR_VENDOR_VER" eq "ES75" ) {
 		return (has_version_delta()
 		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq "ES76" ) {
+		return (has_version_delta()
+		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES123" ) {
+		return (has_version_delta()
+		     && rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq "ES124" ) {
 		return (has_version_delta()
 		     && rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES15" ) {
@@ -1165,8 +1098,8 @@ sub installed_intel_hfi()
 # only called if installed_intel_hfi is true
 sub installed_version_intel_hfi()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return "";
 	}
@@ -1203,10 +1136,6 @@ sub preinstall_intel_hfi($$)
     return preinstall_delta("intel_hfi", $install_list, $installing_list);
 }
 
-my $irq_perm_string = "Set IrqBalance to Exact?";
-AddAnswerHelp("IrqBalance", "$irq_perm_string");
-my $Default_IrqBalance = 1;
-
 sub install_intel_hfi($$)
 {
     my $install_list = shift();     # total that will be installed when done
@@ -1215,27 +1144,6 @@ sub install_intel_hfi($$)
     print_comp_install_banner('intel_hfi');
     setup_env("OPA_INSTALL_CALLER", 1);
 
-    # Adjust irqbalance
-    if ( -e "/etc/sysconfig/irqbalance" ) {
-		print "Intel strongly recommends that the irqbalance service be enabled\n";
-		print "and run using the --hintpolicy=exact option.\n";
-        $Default_IrqBalance = GetYesNoWithMemory("IrqBalance", 1, "$irq_perm_string", "y");
-        if ( $Default_IrqBalance == 1 ) {
-            #set env variable so that RPM can do post install configuration of IRQBALANCE
-            #  if opasystemconfig already exists, set it manually
-            if ( -f "/sbin/opasystemconfig" ) {
-                system("/sbin/opasystemconfig --enable Irq_Balance");
-            } else {
-                setup_env("OPA_IRQBALANCE", 1);
-            }
-        } else {
-            if ( -f "/sbin/opasystemconfig" ) {
-                system("/sbin/opasystemconfig --disable Irq_Balance");
-            } else {
-                setup_env("OPA_IRQBALANCE", 0);
-            }
-        }
-    }
     install_comp_rpms('intel_hfi', " -U --nodeps ", $install_list);
 
     need_reboot();
@@ -1294,8 +1202,8 @@ sub installed_opa_stack_dev()
 # only called if installed_opa_stack_dev is true
 sub installed_version_opa_stack_dev()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return "";
 	}
@@ -1408,8 +1316,8 @@ sub installed_delta_ipoib()
 # only called if installed_delta_ipoib is true
 sub installed_version_delta_ipoib()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return 'Unknown';
 	}
@@ -1505,8 +1413,8 @@ sub installed_mpi_selector()
 # only called if installed_mpi_selector is true
 sub installed_version_mpi_selector()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return "";
 	}
@@ -1600,8 +1508,8 @@ sub installed_sandiashmem()
 # only called if installed_openshmem is true
 sub installed_version_sandiashmem()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return 'Unknown';
 	}
@@ -1649,8 +1557,9 @@ sub install_sandiashmem($$)
 	rpm_uninstall_list2("any", " --nodeps ", 'silent', @{ $ComponentInfo{'sandiashmem'}{'UserRpms'}});
 	my $rpmfile = rpm_resolve(delta_rpms_dir() . "/sandia-openshmem_gcc_hfi", "any");
 	if ( "$rpmfile" ne "" && -e "$rpmfile" ) {
-		# try to remove existed SOS folders
-		my @installed_pkgs = glob("$OFED_prefix/shmem/gcc/sandia-openshmem-*-hfi");
+		# try to remove existed SOS folders. Note this is the workaround for PR 144408. We shall remove the following
+		# code after we resolve the PR.
+		my @installed_pkgs = glob("/usr/shmem/gcc/sandia-openshmem-*-hfi");
 		if (@installed_pkgs) {
 			foreach my $installed_pkg (@installed_pkgs) {
 				if (GetYesNo ("Remove $installed_pkg directory?", "y")) {
@@ -1720,8 +1629,8 @@ sub installed_delta_debug()
 # only called if installed_delta_debug is true
 sub installed_version_delta_debug()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return "";
 	}
@@ -1867,8 +1776,8 @@ sub installed_ibacm()
 # only called if installed_ibacm is true
 sub installed_version_ibacm()
 {
-	if ( -e "$ROOT$BASE_DIR/version_delta" ) {
-		return `cat $ROOT$BASE_DIR/version_delta`;
+	if ( -e "$BASE_DIR/version_delta" ) {
+		return `cat $BASE_DIR/version_delta`;
 	} else {
 		return "";
 	}

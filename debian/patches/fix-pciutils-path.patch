@@ -8,7 +8,7 @@ Last-Update: <2018-11-30>
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/IbaTools/nodeverify/nodeverify.sh
 +++ b/IbaTools/nodeverify/nodeverify.sh
-@@ -247,7 +247,7 @@
+@@ -246,7 +246,7 @@
  	failure=0
  	cd "${outdir}" || fail "Can't cd ${outdir}"
  
@@ -17,7 +17,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  	[ ! -x "${lspci}" ] && fail "Can't find lspci"
  
  	# get OmniPath Intel stand-alone WFR HFI
-@@ -315,7 +315,7 @@
+@@ -314,7 +314,7 @@
  	failure=0
  	cd "${outdir}" || fail "Can't cd ${outdir}"
  
@@ -26,7 +26,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  	[ ! -x "${lspci}" ] && fail "Can't find lspci"
  
  	# get OmniPath Intel stand-alone WFR HFI
-@@ -509,8 +509,8 @@
+@@ -506,8 +506,8 @@
  	date
  	cd "${outdir}" || fail "Can't cd ${outdir}"
  

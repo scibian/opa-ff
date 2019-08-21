@@ -33,6 +33,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define _IBA_STL_HELPER_H_
 
 #include <stdio.h>
+#include <ctype.h>
 #include "ib_helper.h"
 #include "iba/stl_sm_types.h"
 #include "iba/stl_pa_types.h"
@@ -903,20 +904,20 @@ void StlCableInfoDecodeCableType(uint8_t cableType, uint8_t mediaConnType, uint8
 
 	if ((cableType <= STL_CIB_STD_TXTECH_1490_DFB) && (cableType != STL_CIB_STD_TXTECH_OTHER)) {
 		if (mediaConnType == STL_CIB_STD_CONNECTOR_NO_SEP) {
-			strncat(cableTypeInfo->cableTypeShortDesc, " AOC", 4);
+			strncat(cableTypeInfo->cableTypeShortDesc, " AOC", strlen(" AOC") + 1);
 			cableTypeInfo->cableLengthValid = 1;
 		} else {
-			strncat(cableTypeInfo->cableTypeShortDesc, " Xcvr", 5);
+			strncat(cableTypeInfo->cableTypeShortDesc, " Xcvr", strlen(" Xcvr") + 1);
 			cableTypeInfo->cableLengthValid = 0;
 		}
 		cableTypeInfo->activeCable = 1;
 	} else {
 		if (cableType >= STL_CIB_STD_TXTECH_CU_UNEQ) {
 			if (cableType <= STL_CIB_STD_TXTECH_CU_PASSIVEQ) {
-				strncat(cableTypeInfo->cableTypeShortDesc, " Copper", 7);
+				strncat(cableTypeInfo->cableTypeShortDesc, " Copper", strlen(" Copper") + 1);
 				cableTypeInfo->activeCable = 0;
 			} else {
-				strncat(cableTypeInfo->cableTypeShortDesc, " ActCu", 6);
+				strncat(cableTypeInfo->cableTypeShortDesc, " ActCu", strlen(" ActCu") + 1);
 				cableTypeInfo->activeCable = 1;
 			}
 			cableTypeInfo->cableLengthValid = 1;
@@ -1232,6 +1233,18 @@ void StlCableInfoDateCodeToText(uint8_t * code_date, char *text_out)
 }	// End of StlCableInfoOutputDateCodeToText()
 
 static __inline
+void StlCableInfoTrimTrailingWS(char *string, size_t len)
+{
+	size_t i = len - 1;
+
+	while (i > 0 && (isspace(string[i]) || string[i] == 0))
+		i--;
+
+	string[i + 1] = '\0';
+}	// End of StlCableInfoTrimTrailingWS()
+
+
+static __inline
 const char * StlCableInfoCDRToText(uint8_t code_supp, uint8_t code_ctrl)
 {
 	if (! code_supp)
@@ -1467,6 +1480,15 @@ StlIsPortInPortMask(const STL_PORTMASK* portSelectMask, const uint8_t port)
 	return ((portSelectMask[3-(port/64)] & pmask) ? 1 : 0);
 }
 
+static __inline void
+StlSetAllPortsInPortMask(STL_PORTMASK* portSelectMask, const uint8_t numPorts)
+{
+	int i;
+
+	for (i=0; i<= numPorts; i++)
+		StlAddPortToPortMask(portSelectMask, i);
+}
+
 static __inline int
 StlTestAndClearPortInPortMask(STL_PORTMASK* portSelectMask, const uint8_t port) 
 {
@@ -1479,17 +1501,22 @@ StlTestAndClearPortInPortMask(STL_PORTMASK* portSelectMask, const uint8_t port)
 }
 
 static __inline int
-StlGetFirstPortInPortMask(const STL_PORTMASK* portSelectMask) 
+StlGetNextPortInPortMask(const STL_PORTMASK* portSelectMask, int port)
 {
 	uint64_t pmask;
 	int i;
 
-	for (i=0; i <= MAX_STL_PORTS; i++) {
+	for (i=port; i <= MAX_STL_PORTS; i++) {
 		pmask = (uint64_t)(1) << (i % 64);
 		if (portSelectMask[3-(i/64)] & pmask) 
 			return i;
 	}
 	return 0xff;
+}
+static __inline int
+StlGetFirstPortInPortMask(const STL_PORTMASK* portSelectMask)
+{
+	return StlGetNextPortInPortMask(portSelectMask, 0);
 }
 
 static __inline int

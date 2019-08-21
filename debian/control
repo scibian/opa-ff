@@ -7,16 +7,13 @@ Vcs-Git: https://github.com/scibian/opa-ff.git
 Vcs-Browser: https://github.com/scibian/opa-ff
 Homepage: http://www.intel.com
 Build-Depends: debhelper (>= 9),
-               ibacm(>=1.2.0),
+               ibacm (>= 1.2.0),
                libexpat-dev,
-               libibmad-dev,
-               libibumad-dev(>=1.3.10),
-               libibverbs-dev,
+               libibumad-dev (>= 1.3.10.2),
+               libibverbs-dev (>= 1.1.2),
                libncurses5-dev,
-               libopensm-dev,
-               libssl-dev,
+               libssl-dev (>= 1.0.1),
                tcl-dev,
-               zlib1g-dev,
 
 Package: libopamgt-dev
 Section: libdevel
@@ -29,17 +26,40 @@ Description: Summary: Omni-Path library development headers
 Package: libopamgt0
 Architecture: amd64
 Pre-Depends: ${misc:Pre-Depends},
-Depends: libibumad3,
-         ${misc:Depends},
+Depends: ${misc:Depends},
          ${shlibs:Depends},
 Description: Omni-Path management API library
  This package contains the library necessary to build applications that
  interface with an Omni-Path FM.
 
+Package: libopasadb-dev
+Section: libdevel
+Architecture: amd64
+Depends: libopasadb1 (= ${binary:Version}),
+         ${misc:Depends},
+Description: Development files for libopasadb1
+ libopasadb is a library for easy access to the Omni-Path shared memory SA
+ cache exported by the ibacm distributed SA provider (dsap).
+ .
+ This package is needed to compile programs against libopasadb1.
+ It contains the header files and links needed for compiling.
+
+Package: libopasadb1
+Section: libs
+Architecture: amd64
+Pre-Depends: ${misc:Pre-Depends},
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Description: Omni-Path dsap API library
+ libopasadb is a library for easy access to the Omni-Path shared memory SA
+ cache exported by the ibacm distributed SA provider (dsap).
+ .
+ This package contains the shared libraries.
+
 Package: opa-address-resolution
 Architecture: amd64
-Depends: ibacm,
-         opa-basic-tools (=${binary:Version}),
+Pre-Depends: ${misc:Pre-Depends},
+Depends: ibacm (>= 1.2.0),
          libopasadb1 (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends},
@@ -54,6 +74,7 @@ Package: opa-basic-tools
 Architecture: amd64
 Depends: bc,
          expect,
+         linux-cpupower,
          pciutils,
          tcl,
          ${misc:Depends},
@@ -74,38 +95,23 @@ Description: Debug information for package opa
 
 Package: opa-fastfabric
 Architecture: amd64
-Depends: expect,
+Depends: cron | cron-daemon,
+         expect,
          opa-basic-tools (=${binary:Version}),
          tcl,
          ${misc:Depends},
          ${perl:Depends},
          ${shlibs:Depends},
-Replaces: opa-basic-tools (=${binary:Version}),
+Replaces: opa-basic-tools,
           opa-fast-fabric,
 Conflicts: opa-fast-fabric,
 Description: Management level tools and scripts
  Contains tools for managing fabric on a management node.
 
-Package: libopasadb1
-Section: libs
+Package: opa-snapconfig
 Architecture: amd64
-Pre-Depends: ${misc:Pre-Depends},
-Depends: ${misc:Depends},
-         ${shlibs:Depends},
-Description: Omni-Path dsap API library
- libopasadb is a library for easy access to the Omni-Path shared memory SA
- cache exported by the ibacm distributed SA provider (dsap).
- .
- This package contains the shared libraries.
-
-Package: libopasadb-dev
-Section: libdevel
-Architecture: amd64
-Depends: libopasadb1 (= ${binary:Version}),
+Depends: opa-fastfabric (=${binary:Version}),
          ${misc:Depends},
-Description: Development files for libopasadb1
- libopasadb is a library for easy access to the Omni-Path shared memory SA
- cache exported by the ibacm distributed SA provider (dsap).
- .
- This package is needed to compile programs against libopasadb1.
- It contains the header files and links needed for compiling.
+         ${shlibs:Depends},
+Description: Configure fabric with snapshot file
+ Parse information from provided snapshot file and issue packets to program.
