@@ -1,3 +1,13 @@
+opa-ff (10.9.2.0-7-1ifs+deb8sci8+opa10.9u1) scibian8+opa10.9; urgency=medium
+
+  * New release for scibian8+opa10.9
+  * Revert wrong changes in d/*.install
+  * Scibianize d/copyright
+  * Add python build-dep
+  * Add patch to add an expected error
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Wed, 21 Aug 2019 09:46:55 +0200
+
 opa-ff (10.9.2.0-7-1ifs+deb8) jessie; urgency=medium
 
   * Import opa 10.9.2.0-7 from IFS RHEL76 10.9.2.0.9 upstream.
