@@ -13,6 +13,7 @@ Build-Depends: debhelper (>= 9),
                libibverbs-dev (>= 1.1.2),
                libncurses5-dev,
                libssl-dev (>= 1.0.1),
+               python,
                tcl-dev,
 
 Package: libopamgt-dev
