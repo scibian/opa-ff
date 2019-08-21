@@ -1,0 +1,18 @@
+Description: Add expected error for an environment variable
+ In cowbuilder build environment, there is a GJS_DEBUG_TOPICS environment
+ variable which hold an ERROR string. This error string is catched by
+ MakeTools/check_results which does not find it in expected.err file and fails
+ thinking there is a real error. Add this line in expected error file to ignore
+ this environment variable content.
+Author: Rémi Palancher <remi-externe.palancher@edf.fr>
+Forwarded: no
+Last-Update: <2019-08-21>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/OpenIb_Host/expected.err
++++ b/OpenIb_Host/expected.err
+@@ -20,3 +20,4 @@ U HostTestCases/iv/tools/data/stl1_mpi/wfr_driver/BadLIDPktC.pkt
+ U HostTestCases/iv/tools/data/stl1_mpi/wfr_driver/BadOpcodeA.pkt
+ U HostTestCases/iv/tools/data/stl1_mpi/wfr_driver/BadOpcodeB.pkt
+ HostTests/EoSTL/CV/Tools/data/Host/EM/BadGW_spoofing.pkt
++GJS_DEBUG_TOPICS=JS ERROR;JS LOG
