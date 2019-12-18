@@ -9,7 +9,6 @@ License: BSD-3-Clause/Intel
 
 Files: debian/*
 Copyright: 2016-2019 System Fabric Works, Inc.
-           2019 Scibian Project <legal@scibian.org>
 License: BSD-3-Clause/Intel
 
 Files: IbaTools/stream/*

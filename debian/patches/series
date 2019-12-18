@@ -6,4 +6,3 @@ fix-bashisms.patch
 fix-manpage-errors.patch
 fix-pciutils-path.patch
 remove-json-c.patch
-add-expected-error.patch

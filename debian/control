@@ -1,10 +1,8 @@
 Source: opa-ff
-Maintainer: Scibian Project <packaging@scibian.org>
+Maintainer: Brian T. Smith <bsmith@systemfabricworks.com>
 Section: utils
 Priority: extra
 Standards-Version: 3.9.6
-Vcs-Git: https://github.com/scibian/opa-ff.git
-Vcs-Browser: https://github.com/scibian/opa-ff
 Homepage: http://www.intel.com
 Build-Depends: debhelper (>= 9),
                ibacm (>= 1.2.0),
@@ -13,7 +11,6 @@ Build-Depends: debhelper (>= 9),
                libibverbs-dev (>= 1.1.2),
                libncurses5-dev,
                libssl-dev (>= 1.0.1),
-               python,
                tcl-dev,
 
 Package: libopamgt-dev
