@@ -1,3 +1,16 @@
+opa-ff (10.9.3.1-1-1ifs+deb9sci9+opa10.9u1) scibian9+opa10.9; urgency=medium
+
+  [ M'hamed Bouaziz ]
+  * scibianization with changing maintainer and vcs sources
+  * Release 10.9.2.0-7-1ifs+deb9sci9+opa10.9u1
+  * add python as build depends
+  * new release 10.9.2.0-7-1ifs+deb9sci9+opa10.9u2
+  * scibianize control file
+
+  [ MHamed Bouaziz ]
+
+ -- MHamed Bouaziz <mhamed-externe.bouaziz@edf.fr>  Wed, 18 Dec 2019 09:47:28 +0100
+
 opa-ff (10.9.2.0-7-1ifs+deb9sci9+opa10.9u2) scibian9+opa10.9; urgency=medium
 
   *  New version release scibian9+opa10.9.
