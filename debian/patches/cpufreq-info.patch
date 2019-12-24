@@ -1,0 +1,27 @@
+This patch replace cpupower with cpufreq-info command for jessie
+Index: opa-ff/OpenIb_Host/LINUX/opacapture.sh
+===================================================================
+--- opa-ff.orig/OpenIb_Host/LINUX/opacapture.sh
++++ opa-ff/OpenIb_Host/LINUX/opacapture.sh
+@@ -273,7 +273,7 @@ do
+ done
+ 
+ echo "Obtaining additional CPU info..."
+-cpupower frequency-info > /$dir/cpupower-freq-info
++cpufreq-info frequency-info > /$dir/cpupower-freq-info
+ 
+ # Check if HFI driver debug data dir) is present; log only if present
+ HFI_DEBUGDIR="/sys/kernel/debug/hfi1"
+Index: opa-ff/OpenIb_Host/LINUX/opacapture.sh.base
+===================================================================
+--- opa-ff.orig/OpenIb_Host/LINUX/opacapture.sh.base
++++ opa-ff/OpenIb_Host/LINUX/opacapture.sh.base
+@@ -255,7 +255,7 @@ do
+ done
+ 
+ echo "Obtaining additional CPU info..."
+-cpupower frequency-info > /$dir/cpupower-freq-info
++cpufreq-info frequency-info > /$dir/cpupower-freq-info
+ 
+ # Check if HFI driver debug data dir) is present; log only if present
+ HFI_DEBUGDIR="/sys/kernel/debug/hfi1"

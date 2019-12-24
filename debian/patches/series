@@ -6,3 +6,4 @@ fix-bashisms.patch
 fix-manpage-errors.patch
 fix-pciutils-path.patch
 remove-json-c.patch
+cpufreq-info.patch
