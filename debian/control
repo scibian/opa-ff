@@ -75,7 +75,6 @@ Package: opa-basic-tools
 Architecture: amd64
 Depends: bc,
          expect,
-         linux-cpupower,
          pciutils,
          tcl,
          ${misc:Depends},
