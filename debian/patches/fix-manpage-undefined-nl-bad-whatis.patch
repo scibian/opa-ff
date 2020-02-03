@@ -8,7 +8,7 @@ Last-Update: <2017-06-21>
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/IbaTools/man/Makefile
 +++ b/IbaTools/man/Makefile
-@@ -227,6 +227,8 @@
+@@ -229,6 +229,8 @@
  # install for stage phase
  #include $(TL_DIR)/Makerules/Maketargets.stage
  STAGE::

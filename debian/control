@@ -105,11 +105,3 @@ Replaces: opa-basic-tools,
 Conflicts: opa-fast-fabric,
 Description: Management level tools and scripts
  Contains tools for managing fabric on a management node.
-
-Package: opa-snapconfig
-Architecture: amd64
-Depends: opa-fastfabric (=${binary:Version}),
-         ${misc:Depends},
-         ${shlibs:Depends},
-Description: Configure fabric with snapshot file
- Parse information from provided snapshot file and issue packets to program.
