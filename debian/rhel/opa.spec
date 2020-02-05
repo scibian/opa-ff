@@ -1,10 +1,10 @@
 Name: opa
-Version: 10.9.2.0
-Release: 7%{?dist}
+Version: 10.10.1.0
+Release: 35%{?dist}
 Summary: Intel Omni-Path basic tools and libraries for fabric managment.
 
 Group: System Environment/Libraries
-License: GPLv2/BSD
+License: BSD
 Url: https://github.com/intel/opa-ff
 # tarball created by:
 # git clone https://github.com/intel/opa-ff.git
@@ -16,7 +16,7 @@ ExclusiveArch: x86_64
 
 %description
 This package contains the tools necessary to manage an Intel(R) Omni-Path Architecture fabric.
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
 
 %package basic-tools
 Summary: Managment level tools and scripts.
@@ -25,12 +25,12 @@ Group: System Environment/Libraries
 Requires: rdma bc
 
 Requires: expect%{?_isa}, tcl%{?_isa}, openssl%{?_isa}, expat%{?_isa}, libibumad%{?_isa}, libibverbs%{?_isa}
-BuildRequires: expat-devel, gcc-c++, openssl-devel, ncurses-devel, tcl-devel, rdma-core-devel, ibacm-devel
+BuildRequires: expat-devel, gcc-c++, openssl-devel, ncurses-devel, tcl-devel, zlib-devel, rdma-core-devel, ibacm-devel
 Epoch: 1
 
 %description basic-tools
 Contains basic tools for fabric managment necessary on all compute nodes.
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
 
 %package fastfabric
 Summary: Management level tools and scripts.
@@ -41,7 +41,7 @@ Epoch: 1
 
 %description fastfabric
 Contains tools for managing fabric on a managment node.
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
 
 %package address-resolution
 Summary: Contains Address Resolution manager
@@ -52,18 +52,8 @@ Epoch: 1
 %description address-resolution
 This package contains the ibacm distributed SA provider (dsap) for name and address resolution on OPA platform.
 It also contains the library and tools to access the shared memory database exported by dsap.
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
 
-#opasnapconfig
-%package snapconfig
-Summary: Configure fabric with snapshot file
-Group: System Environment/Libraries
-AutoReq: no
-Requires: opa-fastfabric
-
-%description snapconfig
-Parse information from provided snapshot file and issue packets to program
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
 
 %package libopamgt
 Summary: Omni-Path management API library
@@ -73,7 +63,7 @@ Epoch: 1
 
 %description libopamgt
 This package contains the library necessary to build applications that interface with an Omni-Path FM.
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
 
 %package libopamgt-devel
 Summary: Omni-Path library development headers
@@ -83,7 +73,7 @@ Epoch: 1
 
 %description libopamgt-devel
 This package contains the necessary headers for opamgt development.
-IFSComponent: Tools_FF 10.9.2.0.7%{?dist}
+IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
 
 %prep
 #rm -rf %{_builddir}/*
@@ -201,6 +191,8 @@ make -k clean >/dev/null 2>&1 || :
 %{_sbindir}/opapaquery
 %{_sbindir}/opashowmc
 %{_sbindir}/opa2rm
+%{_sbindir}/opaextractperf2
+%{_sbindir}/opamergeperf2
 %{_sbindir}/opafmconfigcheck
 %{_sbindir}/opafmconfigdiff
 /usr/lib/opa/tools/opaswquery
@@ -358,6 +350,8 @@ make -k clean >/dev/null 2>&1 || :
 %{_mandir}/man8/opashowmc.8.gz
 %{_mandir}/man8/opaxmlextract.8.gz
 %{_mandir}/man8/opaxmlfilter.8.gz
+%{_mandir}/man8/opaextractperf2.8.gz
+%{_mandir}/man8/opamergeperf2.8.gz
 %{_mandir}/man8/opaxmlgenerate.8.gz
 %{_mandir}/man8/opaxmlindent.8.gz
 %{_mandir}/man8/opaswdisableall.8.gz
@@ -414,22 +408,6 @@ make -k clean >/dev/null 2>&1 || :
 /usr/src/opa/mpi_apps/hpl-config/README
 /usr/src/opa/mpi_apps/mpicc
 /usr/src/opa/mpi_apps/mpif77
-/usr/src/opa/shmem_apps/Makefile
-/usr/src/opa/shmem_apps/mpi_hosts.sample
-/usr/src/opa/shmem_apps/prepare_run
-/usr/src/opa/shmem_apps/README
-/usr/src/opa/shmem_apps/select_mpi
-/usr/src/opa/shmem_apps/run_barrier
-/usr/src/opa/shmem_apps/run_get_bibw
-/usr/src/opa/shmem_apps/run_get_bw
-/usr/src/opa/shmem_apps/run_get_latency
-/usr/src/opa/shmem_apps/run_put_bibw
-/usr/src/opa/shmem_apps/run_put_bw
-/usr/src/opa/shmem_apps/run_put_latency
-/usr/src/opa/shmem_apps/run_reduce
-/usr/src/opa/shmem_apps/run_hello
-/usr/src/opa/shmem_apps/run_alltoall
-/usr/src/opa/shmem_apps/shmem-hello.c
 %{_sysconfdir}/opa/opamon.si.conf
 # Replace opamon.si.conf, as it's a template config file.
 %config(noreplace) %{_sysconfdir}/opa/opafastfabric.conf
@@ -462,8 +440,6 @@ make -k clean >/dev/null 2>&1 || :
 %config(noreplace) %{_sysconfdir}/rdma/op_path_rec.conf
 %{_sysconfdir}/rdma/opasadb.xml
 
-%files snapconfig
-/usr/lib/opa/tools/opasnapconfig
 
 %files libopamgt
 /usr/lib/libopamgt.*

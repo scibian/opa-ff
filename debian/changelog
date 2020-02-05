@@ -1,3 +1,16 @@
+opa-ff (10.10.1.0-35-1ifs+deb9) stretch; urgency=medium
+
+  * New upstream version 10.10.1.0-35 from IFS RHEL76 10.10.1.0.36.
+  * Remove opa-snapconfig from packaging.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Wed, 05 Feb 2020 17:29:51 -0600
+
+opa-ff (10.9.3.1-1-1ifs+deb9) stretch; urgency=medium
+
+  * Import opa 10.9.3.1-1 from IFS RHEL76 10.9.3.1.1 upstream.
+
+ -- Brian T. Smith <bsmith@systemfabricworks.com>  Thu, 27 Jun 2019 20:01:43 -0500
+
 opa-ff (10.9.2.0-7-1ifs+deb9) stretch; urgency=medium
 
   * Import opa 10.9.2.0-7 from IFS RHEL76 10.9.2.0.9 upstream.

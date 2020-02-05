@@ -77,6 +77,8 @@ usr/lib/opa/tools/tcl_proc
 usr/lib/opa/tools/tools.exp
 usr/lib/opa/tools/upgrade.exp
 usr/sbin/opa2rm
+usr/sbin/opaextractperf2
+usr/sbin/opamergeperf2
 usr/sbin/opaallanalysis
 usr/sbin/opacabletest
 usr/sbin/opacaptureall
@@ -187,6 +189,8 @@ usr/share/man/man8/opaverifyhosts.8
 usr/share/man/man8/opaxlattopology.8
 usr/share/man/man8/opaxmlextract.8
 usr/share/man/man8/opaxmlfilter.8
+usr/share/man/man8/opaextractperf2.8
+usr/share/man/man8/opamergeperf2.8
 usr/share/man/man8/opaxmlgenerate.8
 usr/share/man/man8/opaxmlindent.8
 usr/share/opa/help/opatop_group_bw.hlp
@@ -337,19 +341,3 @@ usr/src/opa/mpi_apps/run_osu
 usr/src/opa/mpi_apps/runmyapp
 usr/src/opa/mpi_apps/select_mpi
 usr/src/opa/mpi_apps/stop_daemons
-usr/src/opa/shmem_apps/Makefile
-usr/src/opa/shmem_apps/README
-usr/src/opa/shmem_apps/mpi_hosts.sample
-usr/src/opa/shmem_apps/prepare_run
-usr/src/opa/shmem_apps/run_alltoall
-usr/src/opa/shmem_apps/run_barrier
-usr/src/opa/shmem_apps/run_get_bibw
-usr/src/opa/shmem_apps/run_get_bw
-usr/src/opa/shmem_apps/run_get_latency
-usr/src/opa/shmem_apps/run_hello
-usr/src/opa/shmem_apps/run_put_bibw
-usr/src/opa/shmem_apps/run_put_bw
-usr/src/opa/shmem_apps/run_put_latency
-usr/src/opa/shmem_apps/run_reduce
-usr/src/opa/shmem_apps/select_mpi
-usr/src/opa/shmem_apps/shmem-hello.c
