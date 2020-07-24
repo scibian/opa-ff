@@ -1,7 +1,7 @@
-#!/bin/sh
-# BEGIN_ICS_COPYRIGHT8 ****************************************
+#!/usr/bin/perl
+## BEGIN_ICS_COPYRIGHT8 ****************************************
 # 
-# Copyright (c) 2015-2017, Intel Corporation
+# Copyright (c) 2015-2019, Intel Corporation
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -26,69 +26,27 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
-# END_ICS_COPYRIGHT8   ****************************************
-
-# [ICS VERSION STRING: unknown]
-
-# helper script to select MPICH_PREFIX
-
-# this script should be . included in a run_ script
-# Input:
-#   MPICH_PREFIX  - path to MPICH tools (optional)
-# Output:
-#   MPICH_PREFIX  - path to MPICH tools
-
-valid_mpich_prefix()
-{
-	if [ -z "$MPICH_PREFIX" -o ! -e "$MPICH_PREFIX" -o ! -e "$MPICH_PREFIX"/bin ]
-	then
-		return 1
-	fi
-	if [ -e "$MPICH_PREFIX/bin/mpirun" -o -e "$MPICH_PREFIX/bin/mpdtrace" \
-		-o -e "$MPICH_PREFIX/bin/mpirun_mpd" -o -e "$MPICH_PREFIX/bin/mpiexec" \
-		-o -e "$MPICH_PREFIX/bin/mpirun_rsh" ]
-	then
-		return 0
-	else
-		return 1
-	fi
-}
-
-# check all MPIs which start with $1 pathname and pick the 1st valid one
-find_mpi()
-{
-	local mpich_prefix
-	for mpich_prefix in $(ls -d $1/bin 2>/dev/null)
-	do
-		MPICH_PREFIX=$(dirname $mpich_prefix 2>/dev/null)
-		if valid_mpich_prefix
-		then
-			break
-		else
-			MPICH_PREFIX=""
-		fi
-	done
-}
-
-# defaults we use for MPI (openmpi, IntelMPI, mvapich2)
-if [ -z "$MPICH_PREFIX" ]
-then
-
-	prefix=${prefix:-/usr}
-
-	# OpenMPI is the only supported runner
-	if ! valid_mpich_prefix
-	then
-		find_mpi $(ls -d $prefix/mpi/gcc/mvapich2*hfi)
-	fi
-	if ! valid_mpich_prefix
-	then
-		find_mpi $prefix/mpi/gcc/mvapich2*
-	fi
-	if ! valid_mpich_prefix
-	then
-		MPICH_PREFIX=""
-	fi
-fi
-export MPICH_PREFIX
-
+## END_ICS_COPYRIGHT8   ****************************************
+#
+## [ICS VERSION STRING: unknown]
+#use strict;
+##use Term::ANSIColor;
+##use Term::ANSIColor qw(:constants);
+##use File::Basename;
+##use Math::BigInt;
+#
+## ==========================================================================
+#
+#Installation Prequisites array for opafm
+my @opafm_prereq = (
+			"bash",
+			"expat",
+			"glibc",
+			"libibumad",
+			"libibverbs",
+			"openssl-libs",
+			"rdma-core",
+			"systemd",
+			"zlib",
+);
+$comp_prereq_hash{'opafm_prereq'} = \@opafm_prereq;
