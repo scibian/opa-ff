@@ -1,3 +1,26 @@
+opa-ff (10.10.1.0-35-1ifs+deb9sci9opa10.10u1) scibian9opa10.10; urgency=medium
+
+  [ M'hamed Bouaziz ]
+  * Import Upstream version 10.9.3.1-1
+
+  [ Nicolas Meaux ]
+  * pristine-tar data for opa-ff_10.7.0.0-133.orig.tar.gz
+
+  [ Mhamed Bouaziz ]
+  * pristine-tar data for opa-ff_10.8.0.1-1.orig.tar.gz
+
+  [ Thomas HAMEL ]
+  * pristine-tar data for opa-ff_10.8.0.1-1.orig.tar.gz
+
+  [ M'hamed Bouaziz ]
+  * pristine-tar data for opa-ff_10.9.2.0-7.orig.tar.gz
+  * Import Upstream version 10.9.3.1-1
+  * Import Upstream version 10.10.1.0-35
+
+  [ MHamed Bouaziz ]
+
+ -- MHamed Bouaziz <mhamed-externe.bouaziz@edf.fr>  Fri, 24 Jul 2020 17:58:34 +0200
+
 opa-ff (10.9.2.0-7-1ifs+deb9) stretch; urgency=medium
 
   * Import opa 10.9.2.0-7 from IFS RHEL76 10.9.2.0.9 upstream.
