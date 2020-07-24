@@ -1,7 +1,7 @@
-#!/bin/sh
-# BEGIN_ICS_COPYRIGHT8 ****************************************
+#!/usr/bin/perl
+## BEGIN_ICS_COPYRIGHT8 ****************************************
 # 
-# Copyright (c) 2015-2017, Intel Corporation
+# Copyright (c) 2015-2018, Intel Corporation
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -26,49 +26,29 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
-# END_ICS_COPYRIGHT8   ****************************************
-
-# [ICS VERSION STRING: unknown]
-
-# BASE PATH TO MPI EXECUTABLES: To use an alternate location,
-# either edit this line or set MPICH_PREFIX in your environment.
-# see select_mpi for the set of default MPI selections
-# default to MPI used for build
-MPICH_PREFIX=${MPICH_PREFIX:-`cat .prefix 2>/dev/null`}
-SHMEM_PREFIX=${SHMEM_PREFIX:-`cat .shmem_prefix 2>/dev/null`}
-
-trap "exit 1" SIGHUP SIGTERM SIGINT
-
-if [ -z "$1" ]
-then
-	echo " Usage: run_put_bw number_processes [args ...]"
-	echo " args - additional test program options, -h will provide help"
-	echo " For example: ./run_put_bw 2"
-	echo "This application requires an even number of processes"
-	exit 1
-fi
-
-NUM_PROCESSES=$1
-shift
-MULT_PROCESSES=2
-APP=shmem_bw_put_perf
-LOGFILE=
-. ./prepare_run
-
-SAMPLE_DIR=${SAMPLE_DIR:-`get_shmem_bench_dir $APP`}
-EXECUTABLE="$SAMPLE_DIR/$APP"
-CMD="$EXECUTABLE $@"
-if [ ! -x $EXECUTABLE ]
-then
-	echo " $EXECUTABLE: Not Found"
-	exit 1
-fi
-
-(
-	echo " Running SHMEM Uni-Directional Put Bandwidth Benchmark ..."
-	show_mpi_hosts
-	set -x
-	$SHMEM_RUN -np $NUM_PROCESSES $CMD
-	set +x
-) 2>&1 | tee -i -a $LOGFILE
-echo "########################################### " >> $LOGFILE
+## END_ICS_COPYRIGHT8   ****************************************
+#
+## [ICS VERSION STRING: unknown]
+#use strict;
+##use Term::ANSIColor;
+##use Term::ANSIColor qw(:constants);
+##use File::Basename;
+##use Math::BigInt;
+#
+## ==========================================================================
+#
+##Installation Prequisites array for opafm
+my @opafm_prereq = (
+			"glibc",
+			"bash",
+			"rdma-core",
+			"rdma-ndd",
+			"systemd",
+			"libexpat1",
+			"libibmad5",
+			"libibumad3",
+			"libibverbs1",
+			"libopenssl1_0_0",
+			"libz1",
+);
+$comp_prereq_hash{'opafm_prereq'} = \@opafm_prereq;

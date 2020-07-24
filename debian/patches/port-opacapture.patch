@@ -58,7 +58,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  ulimit -a > /$dir/ulimit
  uptime > /$dir/uptime
  
-@@ -486,7 +504,7 @@
+@@ -496,7 +514,7 @@
  
  cd /
  files="$dir"
@@ -67,7 +67,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  do
  	if [ -e "$f" ]
  	then
-@@ -509,7 +527,7 @@
+@@ -519,7 +537,7 @@
  	done
  fi
  

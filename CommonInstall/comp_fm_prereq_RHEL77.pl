@@ -1,6 +1,7 @@
-# BEGIN_ICS_COPYRIGHT8 ****************************************
+#!/usr/bin/perl
+## BEGIN_ICS_COPYRIGHT8 ****************************************
 # 
-# Copyright (c) 2015-2017, Intel Corporation
+# Copyright (c) 2015-2018, Intel Corporation
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -25,52 +26,28 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 # 
-# END_ICS_COPYRIGHT8   ****************************************
-# Makefile for Mpi apps
+## END_ICS_COPYRIGHT8   ****************************************
+#
+## [ICS VERSION STRING: unknown]
+#use strict;
+##use Term::ANSIColor;
+##use Term::ANSIColor qw(:constants);
+##use File::Basename;
+##use Math::BigInt;
+#
+## ==========================================================================
+#
+#Installation Prequisites array for opafm
+my @opafm_prereq = (
+    "bash",
+    "expat",
+    "glibc",
+    "libibumad",
+    "libibverbs",
+    "openssl-libs",
+    "rdma-core",
+    "systemd",
+    "zlib",
+);
+$comp_prereq_hash{'opafm_prereq'} = \@opafm_prereq;
 
-# Include Make Control Settings
-include $(TL_DIR)/$(PROJ_FILE_DIR)/Makesettings.project
-
-DS_SUBPROJECTS	=
-DSP_SOURCES = Makefile
-
-DIRS			=
-
-include $(TL_DIR)/$(PROJ_FILE_DIR)/Makerules.project
-
-# files used to create mpi_apps.tgz
-INSTALL_TEST_APPS_SRC =	shmem_apps.tgz
-
-CLOBBER_EXTRA = \
-	.ICSBOOTROMVERSIONSTRING \
-	shmem_apps.tgz \
-	# add additional files here
-
-.PHONEY: appl
-
-appl shmem_apps.tgz:
-	chmod +x run_* prepare_run select_mpi
-	tar cvfz shmem_apps.tgz --exclude CVS \
-		Makefile mpi_hosts.sample prepare_run README select_mpi \
-		run_barrier run_get_bibw run_get_bw run_get_latency run_put_bibw \
-		run_put_bw run_put_latency run_reduce run_hello run_alltoall \
-		shmem-hello.c
-
-cleandepend clean:: clobber
-clobber:: CLOBBER
-CLOBBER::
-	rm -rf $(CLOBBER_EXTRA)
-depend::
-force::
-ALL:: INCLUDES LIBS CMDS
-INCLUDES::
-LIBS::
-# do the real work during CMDS
-CMDS:: $(INSTALL_TEST_APPS_SRC)
-STAGE::
-INSTALL::
-RUNTEST::
-build_dsfiles::
-clobber_dsfiles::
-lint::
-cflow::
