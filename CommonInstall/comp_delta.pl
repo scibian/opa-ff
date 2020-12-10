@@ -1,11 +1,11 @@
 #!/usr/bin/perl
 # BEGIN_ICS_COPYRIGHT8
-# 
-# Copyright (c) 2015-2017, Intel Corporation
-# 
+#
+# Copyright (c) 2015-2020, Intel Corporation
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
-# 
+#
 #     * Redistributions of source code must retain the above copyright notice,
 #       this list of conditions and the following disclaimer.
 #     * Redistributions in binary form must reproduce the above copyright
@@ -14,7 +14,7 @@
 #     * Neither the name of Intel Corporation nor the names of its contributors
 #       may be used to endorse or promote products derived from this software
 #       without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
 # AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 # IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -25,7 +25,7 @@
 # CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-# 
+#
 # END_ICS_COPYRIGHT8
 
 # This file incorporates work covered by the following copyright and permission notice
@@ -76,13 +76,16 @@ my @delta_kernel_srpms_sles12_sp4 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_sles12_sp5 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_sles15 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_sles15_sp1 = ( 'ifs-kernel-updates-kmp-default' );
+my @delta_kernel_srpms_sles15_sp2 = ( 'ifs-kernel-updates-kmp-default' );
 my @delta_kernel_srpms_rhel73 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel74 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel75 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel76 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel77 = ( 'kmod-ifs-kernel-updates' );
+my @delta_kernel_srpms_rhel78 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel8 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms_rhel81 = ( 'kmod-ifs-kernel-updates' );
+my @delta_kernel_srpms_rhel82 = ( 'kmod-ifs-kernel-updates' );
 my @delta_kernel_srpms = ( );
 
 # This provides information for all kernel srpms
@@ -157,16 +160,23 @@ sub init_delta_info($)
 	} elsif ("$CUR_DISTRO_VENDOR" eq 'SuSE'
 		&& "$CUR_VENDOR_VER" eq 'ES151') {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_sles15_sp1 );
+	} elsif ("$CUR_DISTRO_VENDOR" eq 'SuSE'
+		&& "$CUR_VENDOR_VER" eq 'ES152') {
+		@delta_kernel_srpms = ( @delta_kernel_srpms_sles15_sp2 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES74" ) {
 		if ($HFI2_INSTALL) {
 			@delta_kernel_srpms = (@delta_kernel_srpms_rhel74_hfi2);
 		} else {
 			@delta_kernel_srpms = (@delta_kernel_srpms_rhel74);
 		}
+	} elsif ( "$CUR_VENDOR_VER" eq "ES82" ) {
+		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel82 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES81" ) {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel81 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES8" ) {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel8 );
+	} elsif ( "$CUR_VENDOR_VER" eq "ES78" ) {
+		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel78 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES77" ) {
 		@delta_kernel_srpms = ( @delta_kernel_srpms_rhel77 );
 	} elsif ( "$CUR_VENDOR_VER" eq "ES76" ) {
@@ -226,7 +236,7 @@ sub delta_srpm_file($$)
 			$result = file_glob("$srcdir/$SRPMS_SUBDIR/CUDA/$globname");
 		} else {
 			NormalPrint("CUDA specific SRPMs do not exist\n");
-			exit 0;
+			exit 1;
 		}
 	} else {
 		$result = file_glob("$srcdir/$SRPMS_SUBDIR/$globname");
@@ -265,7 +275,7 @@ sub get_rpms_dir_delta($)
 				$rpmsdir=$rpmsdir."/CUDA";
 			} else {
 				NormalPrint("CUDA specific packages do not exist\n");
-				exit 0;
+				exit 1;
 			}
 	}
 	return $rpmsdir;
@@ -796,10 +806,16 @@ sub installed_delta_opa_stack()
 			return ( has_version_delta()
 			      && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 		}
+	} elsif ( "$CUR_VENDOR_VER" eq "ES82" ) {
+		return ( has_version_delta()
+				&& rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES81" ) {
 		return ( has_version_delta()
 				&& rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES8" ) {
+		return ( has_version_delta()
+				&& rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq "ES78" ) {
 		return ( has_version_delta()
 				&& rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES77" ) {
@@ -827,6 +843,9 @@ sub installed_delta_opa_stack()
 		return ( has_version_delta()
 				&& rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq 'ES151' ) {
+		return ( has_version_delta()
+				&& rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq 'ES152' ) {
 		return ( has_version_delta()
 				&& rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} else {
@@ -1120,10 +1139,16 @@ sub installed_intel_hfi()
 	} elsif ( "$CUR_VENDOR_VER" eq "ES77" ) {
 		return (has_version_delta()
 		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq "ES78" ) {
+		return (has_version_delta()
+		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES8" ) {
 		return (has_version_delta()
 		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES81" ) {
+		return (has_version_delta()
+		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq "ES82" ) {
 		return (has_version_delta()
 		     && rpm_is_installed("kmod-ifs-kernel-updates", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES123" ) {
@@ -1139,6 +1164,9 @@ sub installed_intel_hfi()
 		return (has_version_delta()
 		     && rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} elsif ( "$CUR_VENDOR_VER" eq "ES151" ) {
+		return (has_version_delta()
+		     && rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
+	} elsif ( "$CUR_VENDOR_VER" eq "ES152" ) {
 		return (has_version_delta()
 		     && rpm_is_installed("ifs-kernel-updates-kmp-default", $CUR_OS_VER));
 	} else {

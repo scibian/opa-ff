@@ -1,0 +1,23 @@
+Description: Fortify the stream build
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2020-12-10>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+---
+ IbaTools/stream/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/IbaTools/stream/Makefile b/IbaTools/stream/Makefile
+index fd963af..f74104f 100644
+--- a/IbaTools/stream/Makefile
++++ b/IbaTools/stream/Makefile
+@@ -110,7 +110,7 @@ INCLUDE_SUBDIR		=
+ #				(in addition to LOCALDEPLIBS)
+ #LOCAL_LIB_DIRS	= User library directories for libpaths [Empty]
+ 
+-CLOCAL = $(CPIE) -mcmodel=medium -DSTREAM_ARRAY_SIZE=353783808 -fopenmp
++CLOCAL = $(CPIE) -mcmodel=medium -DSTREAM_ARRAY_SIZE=353783808 -fopenmp -D_FORTIFY_SOURCE=2
+ LDLOCAL = -fopenmp
+ 
+ # Include Make Rules definitions and rules

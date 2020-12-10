@@ -77,8 +77,6 @@ usr/lib/opa/tools/tcl_proc
 usr/lib/opa/tools/tools.exp
 usr/lib/opa/tools/upgrade.exp
 usr/sbin/opa2rm
-usr/sbin/opaextractperf2
-usr/sbin/opamergeperf2
 usr/sbin/opaallanalysis
 usr/sbin/opacabletest
 usr/sbin/opacaptureall
@@ -98,6 +96,7 @@ usr/sbin/opaextractlids
 usr/sbin/opaextractlink
 usr/sbin/opaextractmissinglinks
 usr/sbin/opaextractperf
+usr/sbin/opaextractperf2
 usr/sbin/opaextractsellinks
 usr/sbin/opaextractstat
 usr/sbin/opaextractstat2
@@ -114,6 +113,7 @@ usr/sbin/opahostadmin
 usr/sbin/opahostsmanalysis
 usr/sbin/opaledports
 usr/sbin/opalinkanalysis
+usr/sbin/opamergeperf2
 usr/sbin/opapaquery
 usr/sbin/opapingall
 usr/sbin/opareport
@@ -154,6 +154,7 @@ usr/share/man/man8/opaextractlids.8
 usr/share/man/man8/opaextractlink.8
 usr/share/man/man8/opaextractmissinglinks.8
 usr/share/man/man8/opaextractperf.8
+usr/share/man/man8/opaextractperf2.8
 usr/share/man/man8/opaextractsellinks.8
 usr/share/man/man8/opaextractstat.8
 usr/share/man/man8/opaextractstat2.8
@@ -171,6 +172,7 @@ usr/share/man/man8/opahostadmin.8
 usr/share/man/man8/opahostsmanalysis.8
 usr/share/man/man8/opaledports.8
 usr/share/man/man8/opalinkanalysis.8
+usr/share/man/man8/opamergeperf2.8
 usr/share/man/man8/opapaquery.8
 usr/share/man/man8/opapingall.8
 usr/share/man/man8/opareport.8
@@ -189,8 +191,6 @@ usr/share/man/man8/opaverifyhosts.8
 usr/share/man/man8/opaxlattopology.8
 usr/share/man/man8/opaxmlextract.8
 usr/share/man/man8/opaxmlfilter.8
-usr/share/man/man8/opaextractperf2.8
-usr/share/man/man8/opamergeperf2.8
 usr/share/man/man8/opaxmlgenerate.8
 usr/share/man/man8/opaxmlindent.8
 usr/share/opa/help/opatop_group_bw.hlp
@@ -305,6 +305,7 @@ usr/src/opa/mpi_apps/intelmpi.params
 usr/src/opa/mpi_apps/mpi_cleanup
 usr/src/opa/mpi_apps/mpi_hosts.sample
 usr/src/opa/mpi_apps/mpicc
+usr/src/opa/mpi_apps/mpicxx
 usr/src/opa/mpi_apps/mpicheck
 usr/src/opa/mpi_apps/mpicheck/Makefile
 usr/src/opa/mpi_apps/mpicheck/mpicheck.c

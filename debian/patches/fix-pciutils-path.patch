@@ -3,7 +3,7 @@ Description: Correct path to pciutils
  for these tools.
 Author: Brian T. Smith <bsmith@systemfabricworks.com>
 Forwarded: no
-Last-Update: <2018-11-30>
+Last-Update: <2020-12-10>
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/IbaTools/nodeverify/nodeverify.sh
@@ -37,3 +37,14 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
  	[ ! -x "${lspci}" ] && fail "Can't find lspci"
  	[ ! -x "${setpci}" ] && fail "Can't find setpci"
+--- a/IbaTools/opahfirev/opahfirev.sh
++++ b/IbaTools/opahfirev/opahfirev.sh
+@@ -70,7 +70,7 @@
+ 
+ BASEDIR=/sys/bus/pci/devices
+ 
+-hfis=`lspci -nn -D -d '8086:*' | egrep -e "24f[01]|Omni-Path" | grep -vi bridge | cut -d\  -f1`
++hfis=`/usr/bin/lspci -nn -D -d '8086:*' | egrep -e "24f[01]|Omni-Path" | grep -vi bridge | cut -d\  -f1`
+ 
+ if [ -z "$hfis" ]
+ then 
