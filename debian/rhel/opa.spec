@@ -1,6 +1,6 @@
 Name: opa
-Version: 10.10.1.0
-Release: 35%{?dist}
+Version: 10.10.3.1
+Release: 1%{?dist}
 Summary: Intel Omni-Path basic tools and libraries for fabric managment.
 
 Group: System Environment/Libraries
@@ -16,7 +16,7 @@ ExclusiveArch: x86_64
 
 %description
 This package contains the tools necessary to manage an Intel(R) Omni-Path Architecture fabric.
-IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
+IFSComponent: Tools_FF 10.10.3.1.1%{?dist}
 
 %package basic-tools
 Summary: Managment level tools and scripts.
@@ -30,7 +30,7 @@ Epoch: 1
 
 %description basic-tools
 Contains basic tools for fabric managment necessary on all compute nodes.
-IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
+IFSComponent: Tools_FF 10.10.3.1.1%{?dist}
 
 %package fastfabric
 Summary: Management level tools and scripts.
@@ -41,7 +41,7 @@ Epoch: 1
 
 %description fastfabric
 Contains tools for managing fabric on a managment node.
-IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
+IFSComponent: Tools_FF 10.10.3.1.1%{?dist}
 
 %package address-resolution
 Summary: Contains Address Resolution manager
@@ -52,7 +52,7 @@ Epoch: 1
 %description address-resolution
 This package contains the ibacm distributed SA provider (dsap) for name and address resolution on OPA platform.
 It also contains the library and tools to access the shared memory database exported by dsap.
-IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
+IFSComponent: Tools_FF 10.10.3.1.1%{?dist}
 
 
 %package libopamgt
@@ -63,7 +63,7 @@ Epoch: 1
 
 %description libopamgt
 This package contains the library necessary to build applications that interface with an Omni-Path FM.
-IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
+IFSComponent: Tools_FF 10.10.3.1.1%{?dist}
 
 %package libopamgt-devel
 Summary: Omni-Path library development headers
@@ -73,7 +73,7 @@ Epoch: 1
 
 %description libopamgt-devel
 This package contains the necessary headers for opamgt development.
-IFSComponent: Tools_FF 10.10.1.0.35%{?dist}
+IFSComponent: Tools_FF 10.10.3.1.1%{?dist}
 
 %prep
 #rm -rf %{_builddir}/*
@@ -407,6 +407,7 @@ make -k clean >/dev/null 2>&1 || :
 /usr/src/opa/mpi_apps/hpl-config/HPL.dat-*
 /usr/src/opa/mpi_apps/hpl-config/README
 /usr/src/opa/mpi_apps/mpicc
+/usr/src/opa/mpi_apps/mpicxx
 /usr/src/opa/mpi_apps/mpif77
 %{_sysconfdir}/opa/opamon.si.conf
 # Replace opamon.si.conf, as it's a template config file.

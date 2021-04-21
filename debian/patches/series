@@ -6,3 +6,5 @@ fix-bashisms.patch
 fix-pciutils-path.patch
 remove-json-c.patch
 fix-manpage-errors.patch
+fix-user-visible-spelling-errors.patch
+fortify-stream-target.patch

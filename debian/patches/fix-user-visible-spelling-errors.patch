@@ -1,0 +1,54 @@
+Description: Fix user-visible spelling errors
+Author: Brian T. Smith <bsmith@systemfabricworks.com>
+Forwarded: no
+Last-Update: <2020-12-10>
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+diff --git a/IbaTools/man/opascpall.manPage b/IbaTools/man/opascpall.manPage
+index c412f96..35dabb2 100644
+--- a/IbaTools/man/opascpall.manPage
++++ b/IbaTools/man/opascpall.manPage
+@@ -111,7 +111,7 @@ opascpall a b c /root/tools/
+ 
+ .br
+ 
+-# copy to an explitly specified set of hosts
++# copy to an explicitly specified set of hosts
+ .br
+ 
+ opascpall -h \[aq]arwen elrond\[aq] a b c /root/tools
+diff --git a/IbaTools/opapaquery/opapaquery.c b/IbaTools/opapaquery/opapaquery.c
+index c185526..8997926 100644
+--- a/IbaTools/opapaquery/opapaquery.c
++++ b/IbaTools/opapaquery/opapaquery.c
+@@ -1315,7 +1315,7 @@ void usage(void)
+ 	fprintf(stderr, "           0x00000040   6     Link Error Downed\n");
+ 	fprintf(stderr, "           0x00000020   5     Uncorrectable Errors\n");
+ 	fprintf(stderr, " \n");
+- 	fprintf(stderr, "         select bits for clrVfPortCounters (0 is least signficant (rightmost))\n");
++	fprintf(stderr, "         select bits for clrVfPortCounters (0 is least significant (rightmost))\n");
+ 	fprintf(stderr, "           mask        bit location \n");
+ 	fprintf(stderr, "           0x80000000  31     VLXmitData \n");
+ 	fprintf(stderr, "           0x40000000  30     VLRcvData \n");
+diff --git a/opamgt/src/opamgt.c b/opamgt/src/opamgt.c
+index ef0314c..ec3f776 100644
+--- a/opamgt/src/opamgt.c
++++ b/opamgt/src/opamgt.c
+@@ -1466,7 +1466,7 @@ static int bind_single_class(struct omgt_port *port,
+ 	}
+ 
+ 	if (port->umad_agents[class_ver][mclass] != OMGT_INVALID_AGENTID) {
+-		OMGT_OUTPUT_ERROR(port, "WARNINIG re-register of class 0x%x; version 0x%x; was %d\n",
++		OMGT_OUTPUT_ERROR(port, "WARNING re-register of class 0x%x; version 0x%x; was %d\n",
+ 					mclass, class_ver, port->umad_agents[class_ver][mclass]);
+ 		umad_unregister(port->umad_fd, port->umad_agents[class_ver][mclass]);
+ 		rereg = 1;
+@@ -1479,7 +1479,7 @@ static int bind_single_class(struct omgt_port *port,
+ 	}
+ 
+ 	if (rereg)
+-		OMGT_OUTPUT_ERROR(port, "WARNINIG re-register new %d\n", aid);
++		OMGT_OUTPUT_ERROR(port, "WARNING re-register new %d\n", aid);
+ 
+ 	// Store the agent id; be able to correlate it to mgmt class/version.
+ 	port->umad_agents[class_ver][mclass] = (int)aid;

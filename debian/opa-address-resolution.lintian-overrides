@@ -1,0 +1,2 @@
+# false positive for opa_osd_perf
+hardening-no-fortify-functions usr/bin/opa_osd_perf

@@ -2,12 +2,12 @@ Description: Add Makefile support for detecting Debian
  Add logic to detect Debian release in Makefile.
 Author: Brian T. Smith <bsmith@systemfabricworks.com>
 Forwarded: no
-Last-Update: <2018-11-03>
+Last-Update: <2020-05-22>
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/MakeTools/funcs-ext.sh
 +++ b/MakeTools/funcs-ext.sh
-@@ -725,6 +725,9 @@
+@@ -728,6 +728,9 @@
              fedora)
                  rval=redhat
                  ;;
@@ -17,7 +17,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
              *)
                  rval=""
                  ;;
-@@ -846,6 +849,9 @@
+@@ -849,6 +852,9 @@
  			rval=`grep -i SuSE /etc/SuSE-release | cut -d' ' -f3`
  		fi
  		;;
@@ -27,7 +27,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  	turbolinux)
  		rval=`cat /etc/turbolinux-release | cut -d' ' -f3`
  		;;
-@@ -872,8 +878,10 @@
+@@ -875,8 +881,10 @@
  		ver=RH$(echo $BUILD_TARGET_OS_VENDOR_VERSION|sed -e 's/ES/EL/' -e 's/\..*//');;
  	SuSE)
  		ver=SL$(echo $BUILD_TARGET_OS_VENDOR_VERSION|sed -e 's/\..*//');;
