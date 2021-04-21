@@ -26,8 +26,10 @@ Group: System Environment/Libraries
 
 Requires: rdma bc
 
-Requires: __RPM_REQ_BASIC
-BuildRequires: __RPM_BLDREQ
+Requires: __RPM_REQ_BASIC1
+Requires: __RPM_REQ_BASIC2
+BuildRequires: __RPM_BLDREQ1
+BuildRequires: __RPM_BLDREQ2
 __RPM_EPOCH_BASIC
 
 %description basic-tools
