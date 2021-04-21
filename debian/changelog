@@ -1,3 +1,9 @@
+opa-ff (10.10.3.1-1-1ifs+deb9sci9+opa10.10u1) scibian9+opa10.10; urgency=medium
+
+  * Release for scibian9+opa10.10
+
+ -- Rémi Palancher <remi-externe.palancher@edf.fr>  Wed, 21 Apr 2021 21:44:30 +0200
+
 opa-ff (10.10.3.1-1-1ifs+deb9) stretch; urgency=medium
 
   * New upstream version 10.10.3.1-1 IFS RHEL77 10.10.3.1.1.
